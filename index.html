@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>School Games</title>
+<style>
+  :root { --bg:#1b1d23; --panel:#262932; --border:#3a3e4a; --text:#f2f3f5; --dim:#b7bac4; --accent:#4f8cff; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text);
+         font-family:"Segoe UI", Roboto, -apple-system, BlinkMacSystemFont, Arial, sans-serif; }
+  main { max-width:960px; margin:0 auto; padding:24px 16px 40px; }
+  h1 { font-size:2rem; margin:0 0 6px; }
+  p.lead { color:var(--dim); font-size:1.1rem; margin:0 0 22px; line-height:1.5; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:14px; }
+  a.card { display:flex; flex-direction:column; gap:6px; padding:18px; border-radius:14px;
+           background:var(--panel); border:2px solid var(--border); color:var(--text); text-decoration:none; }
+  a.card:hover, a.card:focus-visible { border-color:var(--accent); outline:none; }
+  .icon { font-size:2.4rem; line-height:1; }
+  .name { font-size:1.3rem; font-weight:700; }
+  .who { font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:#9dbcff; }
+  .desc { color:var(--dim); line-height:1.45; }
+</style>
+</head>
+<body>
+<main>
+  <h1>🎲 School Games</h1>
+  <p class="lead">Click-to-play games for sessions. Each one works in any browser. Share the window
+    in Zoom and give Remote Control to whoever's turn it is.</p>
+  <div class="grid">
+    <a class="card" href="chess/index.html">
+      <span class="icon">♟</span><span class="name">Chess</span>
+      <span class="who">2 players · or vs. computer</span>
+      <span class="desc">Click a piece, then click where it goes. Legal moves are highlighted.</span>
+    </a>
+    <a class="card" href="sugar-summit/index.html">
+      <span class="icon">🍭</span><span class="name">Sugar Summit</span>
+      <span class="who">2–4 players</span>
+      <span class="desc">Spin, ride the candy canes up, dodge the sugar slides down. First to space 64 wins.</span>
+    </a>
+    <a class="card" href="silly-critters/index.html">
+      <span class="icon">🐛</span><span class="name">Silly Critters</span>
+      <span class="who">2 players · ages 5–6</span>
+      <span class="desc">Spin the wheel and build a silly critter one part at a time.</span>
+    </a>
+    <a class="card" href="life-paths/index.html">
+      <span class="icon">🛤️</span><span class="name">Life Paths</span>
+      <span class="who">2–4 players</span>
+      <span class="desc">A Life-style board game with "What would you do?" situations, share time, and coping skills.</span>
+    </a>
+    <a class="card" href="matching-game/index.html">
+      <span class="icon">🎴</span><span class="name">Matching Game</span>
+      <span class="who">2 players</span>
+      <span class="desc">Flip two cards at a time to find pairs. Most pairs wins.</span>
+    </a>
+  </div>
+</main>
+</body>
+</html>

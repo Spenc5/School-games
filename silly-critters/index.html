@@ -1,0 +1,1815 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Silly Critters</title>
+<!--
+  Silly Critters: a roll-and-build game for two young players (ages 5-6)
+  sharing one screen over Zoom. Single self-contained file: no network,
+  no build step. All critter art is original inline SVG.
+-->
+<style>
+  :root {
+    --p0: #FF8A00;
+    --p1: #00BFFF;
+    --ink: #111111;
+    --bg: #E9EBF0;
+    --gold: #FFE600;
+    --card: #ffffff;
+    /* Button colours: the spinner's wedge colours, brighter and solid */
+    --grape: #A98BFF;
+    --lemon: #FFE94D;
+    --mint: #4DEBA6;
+    --sky: #4DC3FF;
+    --pink: #FF8CC0;
+    --peach: #FFB259;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    overflow: hidden;
+    user-select: none; -webkit-user-select: none;
+  }
+  button { font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  button:disabled { cursor: default; }
+  svg { display: block; }
+
+  #app {
+    height: 100%; display: grid;
+    grid-template-rows: auto auto 1fr;
+    gap: 1.2vh; padding: 1.2vh 1.4vw 1.6vh;
+  }
+  /* Coach line: plain-words directions for what to do right now. */
+  #coach {
+    display: flex; align-items: center; justify-content: center; gap: 1vw;
+    min-height: 7vh; padding: .6vh 2vw; border-radius: 4px;
+    background: var(--card); border: 3px solid var(--ink); box-shadow: 0 4px 0 var(--ink);
+    font-size: 3.6vh; font-weight: 700; line-height: 1.15; text-align: center; text-wrap: balance;
+  }
+  #coach .chip { flex: none; width: 4.4vh; height: 4.4vh; border-radius: 4px; border: 3px solid var(--ink); }
+  #coach.pop { animation: coachPop .35s ease-out; }
+  @keyframes coachPop { 0% { transform: scale(.94); } 60% { transform: scale(1.03); } 100% { transform: none; } }
+
+  /* ---------- Top bar: turn badge + part chart ---------- */
+  #topbar { display: flex; align-items: center; gap: 1.4vw; }
+  #turnBadge {
+    flex: none; width: 13vh; height: 13vh; border-radius: 4px;
+    border: 4px solid var(--ink); background: var(--p0);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 8.5vh; font-weight: 700; color: var(--ink); line-height: 1;
+    box-shadow: 0 4px 0 var(--ink);
+    transition: background .25s;
+  }
+  #turnBadge.flip { animation: badgeFlip .35s ease-out; }
+  @keyframes badgeFlip { 0% { transform: scale(.6) rotate(-20deg); } 70% { transform: scale(1.12); } 100% { transform: none; } }
+
+  #chart { flex: 1; display: grid; grid-template-columns: repeat(8, 1fr); gap: .6vw; }
+  .tile {
+    height: 12vh; background: var(--wf, var(--card)); border: 3px solid var(--ink); border-radius: 4px;
+    display: flex; align-items: center; justify-content: center; gap: .4vw;
+    box-shadow: 0 5px 0 var(--ink);
+    transition: transform .15s, background .15s;
+  }
+  .tile .face { height: 5.5vh; width: 5.5vh; flex: none; }
+  .tile .eq { width: 1.2vh; height: 1.2vh; flex: none; }
+  .tile .icon { height: 7vh; width: 7vh; flex: none; }
+  .tile { position: relative; }
+  .tile.hl0, .tile.hl1 { transform: translateY(-4px) scale(1.08); border-width: 4px; }
+  .tile.hl0 { background: #FFE000; }
+  .tile.hl1 { background: #FF8CC0; }
+  .tile.locked .icon { opacity: .3; }
+  .tbadge { position: absolute; top: -1.6vh; right: -1.2vh; width: 5.4vh; height: 5.4vh; display: none; }
+  .tile.have .tbadge.check, .tile.locked .tbadge.lock { display: block; }
+
+  .roundBtn {
+    flex: none; width: 7vh; height: 7vh; border-radius: 4px;
+    border: 3px solid var(--ink); background: var(--card); padding: .9vh;
+    box-shadow: 0 4px 0 var(--ink);
+  }
+  #soundBtn { background: var(--sky); }
+  #helpBtn, #modeHelp { background: var(--lemon); }
+  #homeBtn { background: var(--peach); }
+  #homeBtn.armed { background: #FF3B30; animation: shake .4s; }
+  .sideBtns { display: grid; grid-template-columns: repeat(2, 7vh); gap: 1vh; }
+  #modeHelp { position: absolute; top: 2.5vh; right: 2.5vw; width: 9vh; height: 9vh; }
+
+  /* ---------- Board: two critter panels + centre column ---------- */
+  #board {
+    display: grid; min-height: 0;
+    grid-template-columns: 1fr minmax(260px, 31vw) 1fr;
+    gap: 1.6vw;
+  }
+  .panel {
+    position: relative; min-height: 0;
+    background: var(--card); border: 5px solid var(--ink); border-radius: 4px;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 1vh 1vw;
+    transition: transform .25s, opacity .25s, filter .25s, box-shadow .25s;
+  }
+  #panel0 { border-color: var(--p0); }
+  #panel1 { border-color: var(--p1); }
+  .panel.idle { opacity: .5; filter: saturate(.55); transform: scale(.96); }
+  .panel.active { box-shadow: 0 0 0 7px var(--gold), 0 10px 0 7px var(--ink); }
+  .panel .num {
+    position: absolute; top: 1.2vh; left: 1.2vw;
+    width: 8vh; height: 8vh; border-radius: 4px; border: 3px solid var(--ink);
+    color: var(--ink); font-weight: 700; font-size: 5vh; line-height: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #panel0 .num { background: var(--p0); }
+  #panel1 .num { background: var(--p1); }
+  .arrow {
+    position: absolute; top: -1vh; right: 2vw; width: 11vh; height: 9vh;
+    display: none; z-index: 2;
+    animation: arrowBob .8s ease-in-out infinite;
+  }
+  .panel.active .arrow { display: block; }
+  @keyframes arrowBob { 0%,100% { margin-top: -2vh; } 50% { margin-top: 0; } }
+  .stage { flex: 1; min-height: 0; width: 100%; }
+  .stage svg { width: 100%; height: 100%; }
+  .foot { width: 100%; display: flex; flex-direction: column; align-items: center; gap: .8vh; }
+  .progress { display: flex; gap: .6vw; }
+  .progress .pi {
+    width: 6vh; height: 6vh; border-radius: 2px; border: 3px solid #C3C8D8; background: #EEF1F7;
+    padding: .3vh; position: relative;
+  }
+  .progress .pi svg { width: 100%; height: 100%; opacity: .25; filter: grayscale(1); }
+  .progress .pi.got { border-color: var(--ink); background: #D9F6E8; }
+  .progress .pi.got svg { opacity: 1; filter: none; }
+  .tokens { display: flex; align-items: center; gap: .7vw; min-height: 8vh; }
+  .tok { width: 6.5vh; height: 6.5vh; }
+  .tok.new { animation: popIn .4s cubic-bezier(.3,1.8,.5,1); }
+  .tok.full { animation: shake .4s; }
+  @keyframes shake { 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+  @keyframes glow { 0%,100% { transform: scale(1); } 50% { transform: scale(1.1); } }
+
+  /* ---------- Centre column ---------- */
+  #center {
+    display: flex; flex-direction: column; align-items: center; justify-content: space-evenly;
+    gap: 1.5vh; min-height: 0;
+  }
+  /* Spinner: two pointers (gold top, pink bottom) each land on a wedge. */
+  #wheel { width: min(30vw, 47vh); height: min(30vw, 47vh); flex: none; }
+  #wheel .hubLabel { display: none; }
+  #wheel.ready { cursor: pointer; animation: wheelPulse 1.4s ease-in-out infinite; }
+  #wheel.ready .hubLabel { display: block; }
+  #wheel.ready:hover { filter: brightness(1.05); }
+  #wheel:focus { outline: none; }
+  #wheel:focus-visible { outline: 4px dashed var(--ink); outline-offset: 6px; }
+  @keyframes wheelPulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.035); } }
+  #wheel .wedge.lit0 path { fill: #FFE000; }
+  #wheel .wedge.lit1 path { fill: #FF8CC0; }
+  #spinRow { width: 100%; display: flex; justify-content: center; }
+  #spinRow[hidden] { display: none; }
+  #dice[hidden] { display: none; }
+  /* The two landed parts are buttons: tap the one you want. */
+  #dice { width: 100%; display: flex; justify-content: center; gap: 1vw; }
+  .dieChoice {
+    flex: 1 1 0; max-width: 15vw; min-width: 0;
+    display: flex; flex-direction: row; align-items: center; justify-content: center; gap: .6vw;
+    padding: 1vh .5vw; border-radius: 4px; border: 4px solid transparent; background: transparent;
+    transition: transform .12s, opacity .2s, background .2s;
+  }
+  .dieChoice:disabled { cursor: default; }
+  .dface { width: min(4.5vw, 6vh); height: min(4.5vw, 6vh); }
+  .dface svg { width: 100%; height: 100%; }
+  .dpart { position: relative; width: min(6vw, 9vh); height: min(6vw, 9vh); }
+  .dpart > svg { width: 100%; height: 100%; }
+  .dpart.empty { border: 3px dashed #C3C8D8; border-radius: 4px; }
+  .dbadge { position: absolute; right: -1.2vh; bottom: -1.2vh; width: 50%; height: 50%; }
+  .dbadge svg { width: 100%; height: 100%; }
+  .dgift { display: flex; flex-direction: column; align-items: center; gap: .3vh; }
+  .dgift svg { width: 4vh; height: 4vh; }
+  .dieChoice.pickable { background: var(--lemon); border-color: var(--ink); box-shadow: 0 6px 0 var(--ink); cursor: pointer; animation: breathe 1.2s ease-in-out infinite; }
+  #dice .dieChoice.pickable:nth-child(2) { background: var(--pink); }
+  .dieChoice.pickable:hover { transform: translateY(-4px); }
+  .dieChoice.chosen { background: var(--lemon); border-color: var(--ink); }
+  .dieChoice.giftDie { background: var(--pink); border-color: var(--ink); }
+  .dieChoice.faded { opacity: .35; }
+  /* The star is always gold, whichever pointer lands on it. */
+  #dice .dieChoice.starChoice { background: var(--lemon); }
+  #dice.single .dieChoice { max-width: 18vw; }
+  #dice.single .dface { width: min(14vw, 20vh); height: min(14vw, 20vh); }
+  #cogBtn {
+    width: 100%; padding: 0 1vh; height: 10vh; border-radius: 4px;
+    border: 4px solid var(--ink); background: var(--lemon); box-shadow: 0 7px 0 var(--ink);
+    font-size: 3.4vh; font-weight: 700; color: var(--ink);
+    display: none; align-items: center; justify-content: center; gap: .6vw;
+    animation: breathe 1.3s ease-in-out infinite;
+  }
+  #cogBtn svg { width: 5vh; height: 5vh; flex: none; }
+  #cogBtn .rarrow { width: 3vh; height: 2.4vh; }
+  #cogBtn.show { display: flex; }
+  #nextBtn {
+    width: 100%; min-height: 13vh; border-radius: 4px; padding: 1vh 1vw;
+    border: 4px solid var(--ink); box-shadow: 0 9px 0 var(--ink);
+    display: flex; align-items: center; justify-content: center; gap: 1vw;
+    font-size: 4.4vh; font-weight: 700; color: var(--ink); line-height: 1.05;
+    animation: breathe 1.6s ease-in-out infinite;
+  }
+  #nextBtn[hidden] { display: none; }
+  #nextBtn svg { width: 7vh; height: 7vh; flex: none; }
+  .okBtn {
+    display: flex; align-items: center; gap: 1vw; padding: 1vh 3vw;
+    border-radius: 4px; border: 4px solid var(--ink); background: var(--mint); box-shadow: 0 6px 0 var(--ink);
+    font-size: 4.4vh; font-weight: 700; color: var(--ink);
+  }
+  .okBtn svg { width: 6vh; height: 6vh; }
+  .okBtn.later { background: var(--card); }
+  .cardTitle { font-size: 4.4vh; font-weight: 700; text-align: center; }
+  @keyframes tumble { 0% { transform: rotate(0) translateY(0); } 50% { transform: rotate(14deg) translateY(-8px); } 100% { transform: rotate(-14deg) translateY(0); } }
+  @keyframes land { 0% { transform: scale(1.35); } 100% { transform: scale(1); } }
+  @keyframes breathe { 0%,100% { scale: 1; } 50% { scale: 1.04; } }
+
+  #owlBox { display: none; align-items: center; gap: .8vw; }
+  #owlBox.show { display: flex; }
+  #owl { width: 11vh; height: 11vh; flex: none; }
+  #owl.tick { animation: popIn .35s; }
+  #moons { display: grid; grid-template-columns: repeat(6, 2.8vh); gap: .7vh; }
+  .moon { width: 2.8vh; height: 2.8vh; border-radius: 50%; border: 3px solid var(--ink); background: var(--gold); transition: background .3s, transform .3s; }
+  .moon.gone { background: #6B6F8E; transform: scale(.75); }
+
+  #endBox { display: none; flex-direction: column; align-items: center; gap: 2vh; }
+  #endBox .big { width: min(18vw, 26vh); height: min(18vw, 26vh); animation: popIn .5s cubic-bezier(.3,1.8,.5,1); }
+  #againBtn {
+    width: 100%; min-height: 17vh; border-radius: 4px;
+    border: 4px solid var(--ink); background: var(--mint);
+    box-shadow: 0 9px 0 var(--ink);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 4.6vh; font-weight: 700; color: var(--ink); line-height: 1.05; padding: 1vh;
+    animation: breathe 1.4s ease-in-out infinite;
+  }
+  #againBtn svg { width: 8vh; height: 8vh; }
+  body.over #dice, body.over #spinRow, body.over #nextBtn, body.over #wheel, body.over #cogBtn, body.over #owlBox { display: none; }
+  body.over #endBox { display: flex; }
+  body.over .panel { opacity: 1; filter: none; transform: none; box-shadow: none; }
+  body.over .panel .arrow { display: none; }
+
+  /* ---------- Critter animations ---------- */
+  .critter { animation: bob 2.6s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 90%; }
+  @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+  .part.pop { animation: popIn .4s cubic-bezier(.3,1.8,.5,1); transform-box: fill-box; transform-origin: center; }
+  @keyframes popIn { 0% { transform: scale(0); } 100% { transform: scale(1); } }
+  .googly { animation: googly 1.8s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes googly { 0%,100% { transform: translate(0,0); } 30% { transform: translate(4px,3px); } 60% { transform: translate(-4px,2px); } }
+  .prop { animation: prop .45s linear infinite; transform-box: fill-box; transform-origin: center; }
+  @keyframes prop { 0%,100% { transform: scaleX(1); } 50% { transform: scaleX(.12); } }
+  .dance .critter { animation: dance .55s ease-in-out infinite alternate; }
+  #panel1.dance .critter { animation-delay: -.27s; }
+  @keyframes dance {
+    0% { transform: translateY(0) rotate(-9deg) scale(1, 1); }
+    50% { transform: translateY(-22px) rotate(0) scale(.95, 1.06); }
+    100% { transform: translateY(0) rotate(9deg) scale(1.04, .96); }
+  }
+  .crown { position: absolute; top: -5vh; right: -1.5vw; width: 16vh; height: 14vh; rotate: 18deg; z-index: 3; animation: popIn .5s cubic-bezier(.3,1.8,.5,1); }
+
+  /* ---------- Overlays ---------- */
+  .overlay {
+    position: fixed; inset: 0; z-index: 10;
+    background: rgba(29, 29, 43, .6);
+    display: none; align-items: center; justify-content: center;
+  }
+  .overlay.show { display: flex; }
+  .card {
+    position: relative;
+    background: var(--card); border: 5px solid var(--ink); border-radius: 4px;
+    padding: 3vh 3vw; display: flex; flex-direction: column; align-items: center; gap: 2.5vh;
+    box-shadow: 0 12px 0 var(--ink);
+    animation: popIn .25s ease-out;
+    max-width: 96vw;
+  }
+  .cardHead { display: flex; align-items: center; gap: 1.5vw; }
+  .cardHead svg { width: 13vh; height: 13vh; }
+  .opts { display: flex; gap: 2vw; }
+  .opt {
+    width: min(26vw, 46vh); height: min(32vw, 54vh); padding: 1vh;
+    background: #FFFFFF; border: 4px solid var(--ink); border-radius: 4px;
+    box-shadow: 0 7px 0 var(--ink);
+    transition: transform .12s;
+  }
+  #picker .opt:nth-child(1) { background: #D8CCFF; }
+  #picker .opt:nth-child(2) { background: #B8F7D8; }
+  #picker .opt:nth-child(3) { background: #BFE6FF; }
+  .opt.small:nth-child(6n+1) { background: var(--grape); }
+  .opt.small:nth-child(6n+2) { background: var(--lemon); }
+  .opt.small:nth-child(6n+3) { background: var(--mint); }
+  .opt.small:nth-child(6n+4) { background: var(--sky); }
+  .opt.small:nth-child(6n+5) { background: var(--pink); }
+  .opt.small:nth-child(6n+6) { background: var(--peach); }
+  .opt:hover { transform: translateY(-5px) scale(1.03); }
+  .opt:active { transform: translateY(4px); box-shadow: 0 3px 0 var(--ink); }
+  .opt svg { width: 100%; height: 100%; }
+  .opt.small { width: 17vh; height: 17vh; padding: 1.6vh; }
+  .xBtn {
+    position: absolute; top: -3.5vh; right: -3.5vh; width: 9vh; height: 9vh; border-radius: 4px;
+    border: 4px solid var(--ink); background: #FF3B30; padding: 1.8vh; box-shadow: 0 5px 0 var(--ink);
+  }
+
+  /* ---------- Roll result card ---------- */
+  #result { z-index: 15; background: rgba(43, 39, 69, .3); cursor: pointer; }
+  #result .card { gap: 1.6vh; padding: 2.6vh 3vw; }
+  .rrow { display: flex; align-items: center; justify-content: center; gap: 1.6vw; }
+  .rrow > svg, .rrow .rpart { width: 17vh; height: 17vh; flex: none; }
+  .rrow.small > svg, .rrow.small .rpart { width: 10vh; height: 10vh; }
+  .rrow .rarrow { width: 9vh; height: 6vh; }
+  .rpart { position: relative; }
+  .rpart > svg { width: 100%; height: 100%; }
+  .rbadge { position: absolute; right: -1.5vh; bottom: -1.5vh; width: 45%; height: 45%; animation: popIn .35s .25s both cubic-bezier(.3,1.8,.5,1); }
+  .rbadge svg { width: 100%; height: 100%; }
+  .rcap { font-size: 4.4vh; font-weight: 700; text-align: center; line-height: 1.15; max-width: 60vw; }
+  .rplus { font-size: 7vh; font-weight: 700; color: var(--ink); }
+
+  /* ---------- Help ---------- */
+  #help { z-index: 30; }
+  #help .xBtn { top: 1.2vh; right: 1.2vh; width: 7vh; height: 7vh; padding: 1.4vh; border-radius: 4px; }
+  #help .card { max-height: 94vh; overflow-y: auto; gap: 1.4vh; padding-top: 2vh; align-items: stretch; width: min(92vw, 120vh); }
+  .hrow { display: grid; grid-template-columns: 30vh 1fr; align-items: center; gap: 2vw; }
+  .hicons { display: flex; align-items: center; justify-content: flex-end; gap: .6vh; }
+  .hicons svg { width: 5.6vh; height: 5.6vh; flex: none; }
+  .hicons .harrow { width: 4vh; height: 3vh; }
+  .htext { font-size: 2.8vh; line-height: 1.2; padding-right: 6vh; }
+  .htext b { font-weight: 700; }
+
+  /* ---------- Name badges ---------- */
+  #badgeScreen { background: var(--bg); flex-direction: column; gap: 3vh; padding: 3vh 3vw; }
+  .badgeHead { display: flex; align-items: center; gap: 2vw; font-size: 5vh; font-weight: 800; text-align: center; }
+  .bnum {
+    flex: none; width: 9vh; height: 9vh; border: 4px solid var(--ink); border-radius: 4px;
+    display: flex; align-items: center; justify-content: center; font-size: 6vh; font-weight: 800;
+    box-shadow: 0 4px 0 var(--ink);
+  }
+  .badgeGrid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 2vh 2vw; width: min(96vw, 150vh); }
+  .nameBadge {
+    display: flex; align-items: center; gap: 1vw; padding: 1.2vh 1vw; min-width: 0;
+    background: var(--c); border: 4px solid var(--ink); border-radius: 4px; box-shadow: 0 6px 0 var(--ink);
+    font-size: 3.2vh; font-weight: 800; color: var(--ink); text-align: left; line-height: 1.1;
+    transition: transform .12s;
+  }
+  .nameBadge:not(:disabled):hover { transform: translateY(-4px); }
+  .nameBadge svg { flex: none; width: 7vh; height: 7vh; background: #fff; border: 3px solid var(--ink); border-radius: 50%; padding: .5vh; }
+  .nameBadge.taken { opacity: .35; }
+  .ownName { display: flex; gap: 1vw; width: min(96vw, 90vh); }
+  .ownName input {
+    flex: 1; min-width: 0; font: inherit; font-size: max(16px, 3.2vh); font-weight: 700; color: var(--ink);
+    padding: 1.2vh 1.4vw; background: var(--card); border: 4px solid var(--ink); border-radius: 4px; box-shadow: 0 5px 0 var(--ink);
+  }
+  .ownName input::placeholder { color: #8A8FA8; }
+  .ownName input:focus { outline: 4px solid var(--sky); outline-offset: 2px; }
+  .ownName input.nope { animation: shake .4s; }
+  .ownName button {
+    flex: none; font-size: max(16px, 3.2vh); font-weight: 800; padding: 0 3vw; color: var(--ink);
+    background: var(--mint); border: 4px solid var(--ink); border-radius: 4px; box-shadow: 0 5px 0 var(--ink);
+  }
+  #badgeSkip {
+    font-size: 3vh; font-weight: 700; padding: 1.2vh 3vw; color: var(--ink);
+    background: var(--card); border: 3px solid var(--ink); border-radius: 4px; box-shadow: 0 4px 0 var(--ink);
+  }
+  /* Name tag on each critter's panel */
+  .nameTag {
+    position: absolute; top: 1.2vh; left: calc(1.2vw + 8vh + .8vw); max-width: calc(100% - 8vh - 15vh);
+    display: flex; align-items: center; gap: .5vw; padding: .4vh .7vw;
+    border: 3px solid var(--ink); border-radius: 4px; font-size: 2.6vh; font-weight: 800; line-height: 1.1;
+  }
+  .nameTag[hidden] { display: none; }
+  .nameTag svg { flex: none; width: 4.4vh; height: 4.4vh; background: #fff; border: 2px solid var(--ink); border-radius: 50%; padding: .3vh; }
+
+  /* ---------- Mode screen ---------- */
+  #modeScreen { background: var(--bg); flex-direction: column; gap: 4vh; }
+  #modeScreen h1 {
+    margin: 0; font-size: 11vh; font-weight: 800; color: #FF8A00; letter-spacing: 0;
+    text-shadow: 4px 4px 0 #00BFFF, 4px 4px 0 1px var(--ink);
+  }
+  .titleCritters { display: flex; gap: 4vw; }
+  .titleCritters svg { width: 24vh; height: 30vh; }
+  .modes { display: flex; gap: 4vw; }
+  .modeBtn {
+    width: min(34vw, 46vh); height: 32vh; border-radius: 4px; border: 5px solid var(--ink);
+    box-shadow: 0 10px 0 var(--ink);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1vh;
+    font-size: 6vh; font-weight: 700; color: var(--ink);
+    transition: transform .12s;
+  }
+  .modeBtn:hover { transform: translateY(-5px) scale(1.03); }
+  .modeBtn svg { height: 18vh; width: 30vh; }
+  #raceBtn { background: var(--peach); }
+  #teamBtn { background: var(--grape); }
+
+  /* ---------- Big flash + confetti ---------- */
+  #flash {
+    position: fixed; left: 50%; top: 50%; z-index: 20; pointer-events: none;
+    width: 40vh; height: 40vh; margin: -20vh 0 0 -20vh; display: none;
+  }
+  #flash.show { display: block; animation: flash .8s ease-out forwards; }
+  @keyframes flash {
+    0% { transform: scale(.2) rotate(-90deg); opacity: 0; }
+    30% { transform: scale(1.1) rotate(0); opacity: 1; }
+    75% { transform: scale(1) rotate(20deg); opacity: 1; }
+    100% { transform: scale(1.3) rotate(40deg); opacity: 0; }
+  }
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 5; overflow: hidden; }
+  .cf { position: absolute; top: -4vh; width: 1.6vh; height: 2.4vh; border-radius: 2px; animation: fall linear forwards; }
+  @keyframes fall { to { transform: translateY(112vh) rotate(720deg); } }
+
+  /* ---------- Phone (portrait) layout ----------
+     Chart strip on top, coach line, the two critters side by side,
+     then the spinner and its controls underneath. */
+  @media (max-aspect-ratio: 4/5), (max-width: 600px) {
+    #app { gap: 1vh; padding: 1vh 2.5vw 1.2vh; }
+    #topbar { flex-wrap: wrap; justify-content: space-between; gap: 1vh 2vw; }
+    #turnBadge { width: 12vw; height: 12vw; font-size: 8vw; border-width: 3px; }
+    .sideBtns { grid-template-columns: repeat(3, 10vw); gap: 2vw; }
+    .roundBtn { width: 10vw; height: 10vw; padding: 1.4vw; }
+    #chart { order: 3; flex: 0 0 100%; gap: 1.2vw; }
+    .tile { height: auto; padding: 1vw 0; flex-direction: column; gap: .3vw; box-shadow: 0 3px 0 var(--ink); }
+    .tile .eq { display: none; }
+    .tile .face { width: 6.5vw; height: 6.5vw; }
+    .tile .icon { width: 8vw; height: 8vw; }
+    .tbadge { width: 5vw; height: 5vw; top: -1.5vw; right: -1.2vw; }
+    #coach { min-height: 0; padding: 1vw 2.5vw; font-size: 3.7vw; gap: 2vw; }
+    #coach .chip { width: 3.6vw; height: 3.6vw; }
+
+    #board { grid-template-columns: 1fr 1fr; grid-template-rows: minmax(0, 34%) minmax(0, 1fr); gap: 2.5vw; }
+    #panel0 { grid-column: 1; grid-row: 1; }
+    #panel1 { grid-column: 2; grid-row: 1; }
+    #center { grid-column: 1 / -1; grid-row: 2; justify-content: space-between; gap: 1vh; }
+    .panel { border-width: 5px; padding: .6vh 1vw; }
+    .panel.idle { transform: scale(.97); }
+    .panel .num { width: 7vw; height: 7vw; font-size: 4.5vw; top: 1vw; left: 1vw; border-width: 3px; }
+    .arrow { width: 9vw; height: 7vw; }
+    .foot { gap: .4vh; }
+    .progress { gap: .5vw; }
+    .progress .pi { width: 5.2vw; height: 5.2vw; border-width: 2px; border-radius: 3px; padding: .2vw; }
+    .tokens { min-height: 0; gap: 1.2vw; }
+    .tok { width: 5.5vw; height: 5.5vw; }
+    .crown { width: 13vw; height: 11vw; top: -4vw; right: -2vw; }
+
+    /* The spinner takes whatever height is left, so everything fits on any phone. */
+    #wheel { flex: 1 1 0; min-height: 0; width: 100%; height: auto; max-width: 84vw; }
+    #dice { gap: 3vw; }
+    .dieChoice { max-width: 46vw; gap: 2vw; padding: 1vh 2vw; }
+    .dface { width: 8vw; height: 8vw; }
+    .dpart { width: min(14vw, 8vh); height: min(14vw, 8vh); }
+    .dgift svg { width: 5.5vw; height: 5.5vw; }
+    #dice.single .dieChoice { max-width: 50vw; }
+    #dice.single .dface { width: min(30vw, 14vh); height: min(30vw, 14vh); }
+    #cogBtn { height: 8vh; font-size: 4.2vw; }
+    #cogBtn svg { width: 6vw; height: 6vw; }
+    #nextBtn { min-height: 8vh; font-size: 5vw; }
+    #nextBtn svg { width: 9vw; height: 9vw; }
+    #owlBox { gap: 3vw; }
+    #owl { width: 7vh; height: 7vh; }
+    #moons { grid-template-columns: repeat(9, 2.4vh); gap: .6vh; }
+    .moon { width: 2.4vh; height: 2.4vh; border-width: 2px; }
+    #endBox { gap: 1.5vh; width: 100%; }
+    #endBox .big { width: min(40vw, 20vh); height: min(40vw, 20vh); }
+    #againBtn { min-height: 10vh; font-size: 6vw; }
+
+    /* Pop-up cards */
+    .card { padding: 2.5vh 4vw; gap: 1.8vh; border-width: 4px; max-width: 94vw; }
+    .cardTitle { font-size: 5vw; padding: 0 8vw; }
+    .cardHead svg { width: 13vw; height: 13vw; }
+    .opts { gap: 2.5vw; flex-wrap: wrap; justify-content: center; }
+    .opt { width: 27vw; height: 38vw; padding: .5vw; border-width: 3px; }
+    .opt.small { width: 20vw; height: 20vw; padding: 2vw; }
+    .xBtn { width: 11vw; height: 11vw; top: -4vw; right: -3vw; padding: 2.4vw; }
+    .rrow > svg, .rrow .rpart { width: 20vw; height: 20vw; }
+    .rrow.small > svg, .rrow.small .rpart { width: 12vw; height: 12vw; }
+    .rrow .rarrow { width: 9vw; height: 6vw; }
+    .rcap { font-size: 5vw; max-width: 84vw; }
+    .rplus { font-size: 9vw; }
+    .okBtn { font-size: 5.5vw; padding: 1vh 7vw; }
+    .okBtn svg { width: 8vw; height: 8vw; }
+    #help .card { width: 94vw; padding: 2vh 3vw; }
+    #help .xBtn { width: 9vw; height: 9vw; top: 1vh; right: 1vh; padding: 1.8vw; }
+    .hrow { grid-template-columns: 30vw 1fr; gap: 3vw; }
+    .hicons svg { width: 7vw; height: 7vw; }
+    .hicons .harrow { width: 4vw; height: 3vw; }
+    .htext { font-size: 3.6vw; padding-right: 8vw; }
+
+    /* Name badges */
+    #badgeScreen { gap: 2vh; padding: 2vh 3vw; }
+    .badgeHead { font-size: 5.5vw; gap: 3vw; }
+    .bnum { width: 11vw; height: 11vw; font-size: 7vw; }
+    .badgeGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.6vh 3vw; width: 94vw; }
+    .nameBadge { font-size: 4.2vw; padding: 1vh 2vw; gap: 2vw; }
+    .nameBadge svg { width: 10vw; height: 10vw; }
+    #badgeSkip { font-size: 4.5vw; padding: 1vh 6vw; }
+    .ownName { width: 94vw; gap: 2vw; }
+    .ownName input { font-size: max(16px, 4.5vw); padding: 1.2vh 3vw; }
+    .ownName button { font-size: max(16px, 4.5vw); padding: 0 6vw; }
+    .nameTag { top: 1vw; left: calc(1vw + 7vw + 1.5vw); max-width: calc(100% - 7vw - 12vw); font-size: 2.8vw; padding: .3vw .8vw; gap: 1vw; border-width: 2px; }
+    .nameTag svg { width: 4.6vw; height: 4.6vw; }
+
+    /* Mode picker */
+    #modeScreen { gap: 3vh; padding: 0 4vw; }
+    #modeScreen h1 { font-size: 11vw; }
+    .titleCritters svg { width: 26vw; height: 32vw; }
+    .modes { flex-direction: column; gap: 3vh; }
+    .modeBtn { width: 80vw; height: 19vh; font-size: 8vw; }
+    .modeBtn svg { height: 11vh; width: 40vw; }
+    #modeHelp { width: 11vw; height: 11vw; top: 2vh; right: 3vw; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .critter, .googly, .prop, #wheel.ready, .arrow, #againBtn { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header id="topbar">
+    <div id="turnBadge" role="status" aria-live="polite" aria-label="Player 1's turn">1</div>
+    <div id="chart" aria-label="Part chart"></div>
+    <div class="sideBtns">
+      <button id="soundBtn" class="roundBtn" aria-label="Sound on or off"></button>
+      <button id="helpBtn" class="roundBtn" aria-label="How to play"></button>
+      <button id="homeBtn" class="roundBtn" aria-label="Pick a game mode"></button>
+    </div>
+  </header>
+  <div id="coach" role="status" aria-live="polite"></div>
+
+  <main id="board">
+    <section class="panel" id="panel0" aria-label="Player 1's critter">
+      <svg class="arrow" viewBox="0 0 110 90"><path d="M15 8 H95 L55 82 Z" fill="var(--p0)" stroke="#111111" stroke-width="8" stroke-linejoin="round"/></svg>
+      <div class="num">1</div>
+      <div class="nameTag" hidden></div>
+      <div class="stage"></div>
+      <div class="foot">
+        <div class="progress"></div>
+        <div class="tokens"></div>
+      </div>
+    </section>
+
+    <section id="center">
+      <svg id="wheel" viewBox="-120 -124 240 248" role="button" tabindex="0" aria-label="Spinner: tap to spin"></svg>
+      <div id="spinRow">
+        <button id="cogBtn" aria-label="Use 3 spare parts to pick any part"></button>
+      </div>
+      <div id="dice" aria-label="Pick a part" hidden></div>
+      <button id="nextBtn" hidden></button>
+      <div id="owlBox">
+        <svg id="owl" viewBox="0 0 120 120" aria-label="Sleepy owl timer"></svg>
+        <div id="moons"></div>
+      </div>
+      <div id="endBox">
+        <div id="endBig"></div>
+        <button id="againBtn" aria-label="Play again"></button>
+      </div>
+    </section>
+
+    <section class="panel" id="panel1" aria-label="Player 2's critter">
+      <svg class="arrow" viewBox="0 0 110 90"><path d="M15 8 H95 L55 82 Z" fill="var(--p1)" stroke="#111111" stroke-width="8" stroke-linejoin="round"/></svg>
+      <div class="num">2</div>
+      <div class="nameTag" hidden></div>
+      <div class="stage"></div>
+      <div class="foot">
+        <div class="progress"></div>
+        <div class="tokens"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Pick one of 3 versions of a part -->
+<div class="overlay" id="picker"><div class="card"><div class="cardTitle"></div><div class="cardHead"></div><div class="opts"></div></div></div>
+<!-- Pick a part type (spare-part trade, or Swap) -->
+<div class="overlay" id="chooser"><div class="card"><button class="xBtn" aria-label="No thanks"></button><div class="cardTitle"></div><div class="cardHead"></div><div class="opts"></div></div></div>
+
+<div class="overlay show" id="modeScreen">
+  <button id="modeHelp" class="roundBtn" aria-label="How to play"></button>
+  <h1>Silly Critters</h1>
+  <div class="titleCritters" id="titleCritters"></div>
+  <div class="modes">
+    <button class="modeBtn" id="raceBtn" aria-label="Race mode: first critter finished wins"></button>
+    <button class="modeBtn" id="teamBtn" aria-label="Team mode: finish both critters before the owl falls asleep"></button>
+  </div>
+</div>
+
+<!-- Each player picks a silly name badge (optional) -->
+<div class="overlay" id="badgeScreen">
+  <div class="badgeHead"><div class="bnum" id="badgeNum">1</div><div id="badgeTitle"></div></div>
+  <div class="badgeGrid" id="badgeGrid"></div>
+  <form class="ownName" id="ownName">
+    <input id="ownNameInput" maxlength="16" autocomplete="off" enterkeyhint="done" placeholder="Or type your own name" aria-label="Type your own name">
+    <button type="submit">OK</button>
+  </form>
+  <button id="badgeSkip">No name</button>
+</div>
+
+<!-- What the roll means: shown briefly after every roll; tap to skip -->
+<div class="overlay" id="result" role="status" aria-live="polite"><div class="card"></div></div>
+<!-- Rules in pictures, for the grown-up -->
+<div class="overlay" id="help"><div class="card"><button class="xBtn" id="helpClose" aria-label="Close"></button><div id="helpBody"></div></div></div>
+
+<svg id="flash" viewBox="0 0 100 100" aria-hidden="true"></svg>
+<div id="confetti"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ================================================================
+  // Parts & rules
+  // ================================================================
+  // Part ids double as the starting chart order: die face 1 = body ... 6 = hat.
+  const BODY = 0, HEAD = 1, EYES = 2, LEGS = 3, NOSE = 4, HAT = 5, ARMS = 6;
+  const PART_NAMES = ['body', 'head', 'eyes', 'legs', 'nose', 'hat', 'arms'];
+  const NEEDS = [[], [BODY], [HEAD], [BODY], [HEAD], [HEAD], [BODY]];
+  // Arms and legs tuck behind the body.
+  const DRAW_ORDER = [LEGS, ARMS, BODY, HEAD, EYES, NOSE, HAT];
+  // The star wedge: not a part, it lets you pick any part you need.
+  const STAR = 7;
+  const LABEL = [...PART_NAMES, 'star'];
+  const PLURAL = new Set([EYES, LEGS, ARMS]);
+  const WEDGES = 8, STEP = 360 / WEDGES;     // spinner wedges and degrees per wedge
+  const OWL_ROUNDS = 18;   // owl timer, counted in turns (each player's roll is one turn)
+  const MAX_TOKENS = 3;
+
+  const INK = '#111111';
+  const O = `stroke="${INK}" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"`;
+  // A thick coloured line with a dark outline (for tentacles, springs, antennae).
+  const line = (d, color, w) =>
+    `<path d="${d}" fill="none" stroke="${INK}" stroke-width="${w + 12}" stroke-linecap="round" stroke-linejoin="round"/>` +
+    `<path d="${d}" fill="none" stroke="${color}" stroke-width="${w}" stroke-linecap="round" stroke-linejoin="round"/>`;
+
+  // Overlapping circles drawn as one shape with a single outline (clouds, puffs).
+  const blob = (circles, fill) =>
+    circles.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${INK}" stroke="${INK}" stroke-width="12"/>`).join('') +
+    circles.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${fill}"/>`).join('');
+  // Five-point star path centred on (cx, cy).
+  const starPath = (cx, cy, R, r) => Array.from({ length: 10 }, (_, i) => {
+    const a = -Math.PI / 2 + i * Math.PI / 5, d = i % 2 ? r : R;
+    return `${i ? 'L' : 'M'}${(cx + d * Math.cos(a)).toFixed(1)} ${(cy + d * Math.sin(a)).toFixed(1)}`;
+  }).join(' ') + ' Z';
+
+  // ================================================================
+  // Original critter art: 6 versions of each part (the picker offers 3 at random).
+  // Critter canvas is viewBox "0 -50 300 420"; head centre ~(150,118), body ~(150,242).
+  // ================================================================
+  const ART = [
+    // ---- BODY ----
+    [
+      () => `<ellipse cx="150" cy="242" rx="98" ry="68" fill="#7B4DFF" ${O}/>
+             <ellipse cx="150" cy="256" rx="56" ry="38" fill="#C4B0FF"/>
+             <circle cx="86" cy="222" r="9" fill="#5B30F0"/><circle cx="214" cy="222" r="9" fill="#5B30F0"/>`,
+      () => `<path d="M150 176 C215 176 240 230 233 262 C226 298 190 308 150 308 C110 308 74 298 67 262 C60 230 85 176 150 176Z" fill="#00E07A" ${O}/>
+             <path d="M82 232 Q150 250 218 232" stroke="#8FF5C8" stroke-width="12" fill="none" stroke-linecap="round"/>
+             <path d="M80 270 Q150 290 220 270" stroke="#8FF5C8" stroke-width="12" fill="none" stroke-linecap="round"/>`,
+      () => `<rect x="58" y="178" width="184" height="124" rx="46" fill="#FF4FA3" ${O}/>
+             <circle cx="100" cy="220" r="11" fill="#FFAAD0"/><circle cx="160" cy="238" r="13" fill="#FFAAD0"/>
+             <circle cx="210" cy="212" r="9" fill="#FFAAD0"/><circle cx="118" cy="276" r="10" fill="#FFAAD0"/>
+             <circle cx="200" cy="270" r="12" fill="#FFAAD0"/>`,
+      // Gumdrop with a star on the tummy
+      () => `<path d="M150 172 C204 172 238 250 242 286 Q244 306 150 306 Q56 306 58 286 C62 250 96 172 150 172Z" fill="#FF7A00" ${O}/>
+             <path d="M150 226 L158 246 L180 247 L163 260 L169 281 L150 269 L131 281 L137 260 L120 247 L142 246 Z" fill="#FFE000" ${O} stroke-width="4"/>`,
+      // Blue egg with a zigzag stripe
+      () => `<ellipse cx="150" cy="242" rx="88" ry="72" fill="#17A2FF" ${O}/>
+             <path d="M70 244 L90 228 L110 244 L130 228 L150 244 L170 228 L190 244 L210 228 L230 244" fill="none" stroke="#fff" stroke-width="9" stroke-linejoin="round" stroke-linecap="round"/>`,
+      // Fluffy cloud
+      () => blob([[102, 228, 40], [150, 212, 44], [198, 228, 40], [120, 272, 38], [180, 272, 38], [150, 262, 46]], '#BFE6FF'),
+    ],
+    // ---- HEAD (each comes with its own mouth) ----
+    [
+      () => `<circle cx="94" cy="68" r="22" fill="#FFE000" ${O}/><circle cx="206" cy="68" r="22" fill="#FFE000" ${O}/>
+             <circle cx="94" cy="68" r="10" fill="#FF8CC0"/><circle cx="206" cy="68" r="10" fill="#FF8CC0"/>
+             <circle cx="150" cy="118" r="68" fill="#FFE000" ${O}/>
+             <ellipse cx="102" cy="142" rx="12" ry="8" fill="#FF8CC0"/><ellipse cx="198" cy="142" rx="12" ry="8" fill="#FF8CC0"/>
+             <path d="M122 158 Q150 180 178 158" fill="none" ${O}/>`,
+      () => line('M118 60 L96 22', '#17A2FF', 6) + line('M182 60 L204 22', '#17A2FF', 6) +
+            `<circle cx="96" cy="20" r="11" fill="#FFE000" ${O}/><circle cx="204" cy="20" r="11" fill="#FFE000" ${O}/>
+             <rect x="82" y="54" width="136" height="128" rx="38" fill="#17A2FF" ${O}/>
+             <path d="M120 152 Q150 186 180 152 Z" fill="#F0203C" ${O}/>
+             <rect x="137" y="152" width="12" height="10" fill="#fff"/><rect x="152" y="152" width="12" height="10" fill="#fff"/>`,
+      () => `<path d="M100 70 L80 44 L112 56 L118 26 L136 50 L150 18 L164 50 L182 26 L188 56 L220 44 L200 70 Z" fill="#6E4529" ${O}/>
+             <ellipse cx="150" cy="118" rx="64" ry="74" fill="#00D9C8" ${O}/>
+             <circle cx="112" cy="146" r="3.5" fill="#00B3A6"/><circle cx="104" cy="138" r="3.5" fill="#00B3A6"/><circle cx="118" cy="136" r="3.5" fill="#00B3A6"/>
+             <circle cx="188" cy="146" r="3.5" fill="#00B3A6"/><circle cx="196" cy="138" r="3.5" fill="#00B3A6"/><circle cx="182" cy="136" r="3.5" fill="#00B3A6"/>
+             <path d="M124 164 q9 -9 18 0 t18 0 t18 0" fill="none" ${O}/>`,
+      // Cat with whiskers
+      () => `<path d="M94 84 L84 22 L132 56 Z M206 84 L216 22 L168 56 Z" fill="#FF8CC0" ${O}/>
+             <path d="M98 70 L92 38 L118 58 Z M202 70 L208 38 L182 58 Z" fill="#FFD0E6"/>
+             <circle cx="150" cy="118" r="66" fill="#FF8CC0" ${O}/>
+             <path d="M112 146 L66 138 M112 154 L66 160 M188 146 L234 138 M188 154 L234 160" stroke="${INK}" stroke-width="4" stroke-linecap="round"/>
+             <path d="M130 160 q10 10 20 0 q10 10 20 0" fill="none" ${O}/>`,
+      // Square monster with horns and fangs
+      () => `<path d="M100 66 Q80 30 104 20 Q104 44 120 58 Z M200 66 Q220 30 196 20 Q196 44 180 58 Z" fill="#FFF6A8" ${O}/>
+             <rect x="80" y="54" width="140" height="128" rx="30" fill="#00E07A" ${O}/>
+             <path d="M114 150 Q150 186 186 150 Z" fill="#F0203C" ${O}/>
+             <path d="M130 151 L138 151 L134 162 Z M162 151 L170 151 L166 162 Z" fill="#fff" stroke="${INK}" stroke-width="3" stroke-linejoin="round"/>`,
+      // Round head with a feather crest and a big smile
+      () => `<g transform="rotate(-25 150 60)"><ellipse cx="150" cy="40" rx="10" ry="26" fill="#FF4FA3" ${O}/></g>
+             <ellipse cx="150" cy="34" rx="10" ry="28" fill="#FFE000" ${O}/>
+             <g transform="rotate(25 150 60)"><ellipse cx="150" cy="40" rx="10" ry="26" fill="#17A2FF" ${O}/></g>
+             <ellipse cx="150" cy="120" rx="70" ry="64" fill="#D8CCFF" ${O}/>
+             <path d="M118 152 Q150 186 182 152 Z" fill="#fff" ${O}/>
+             <path d="M136 164 Q150 178 164 164" fill="#FF8CC0"/>`,
+    ],
+    // ---- EYES ----
+    [
+      () => `<circle cx="122" cy="104" r="21" fill="#fff" ${O}/><circle cx="178" cy="104" r="21" fill="#fff" ${O}/>
+             <g class="googly"><circle cx="126" cy="109" r="9" fill="${INK}"/><circle cx="174" cy="99" r="9" fill="${INK}"/></g>`,
+      () => `<circle cx="150" cy="100" r="31" fill="#fff" ${O}/><circle cx="150" cy="102" r="16" fill="#1F8CFF"/>
+             <circle cx="150" cy="102" r="8" fill="${INK}"/><circle cx="156" cy="96" r="4" fill="#fff"/>
+             <path d="M118 66 Q150 54 182 66" fill="none" ${O}/>`,
+      () => `<circle cx="112" cy="110" r="14" fill="#fff" ${O}/><circle cx="150" cy="92" r="14" fill="#fff" ${O}/><circle cx="188" cy="110" r="14" fill="#fff" ${O}/>
+             <g class="googly"><circle cx="114" cy="112" r="6" fill="${INK}"/><circle cx="152" cy="94" r="6" fill="${INK}"/><circle cx="190" cy="112" r="6" fill="${INK}"/></g>`,
+      // Sleepy eyes
+      () => [124, 176].map(x => `<circle cx="${x}" cy="104" r="19" fill="#fff" ${O}/>
+             <circle cx="${x}" cy="111" r="7" fill="${INK}"/>
+             <path d="M${x - 19} 104 A19 19 0 0 1 ${x + 19} 104 Z" fill="#C4B0FF" ${O}/>`).join(''),
+      // Star sunglasses
+      () => `<path d="M138 100 L162 100" ${O}/>` + [122, 178].map(x => `<path d="${starPath(x, 104, 24, 11)}" fill="#2B2745" ${O}/>
+             <circle cx="${x - 6}" cy="98" r="4" fill="#fff"/>`).join(''),
+      // Heart eyes
+      () => [122, 178].map(x => `<path d="M${x} 118 C${x - 26} 100 ${x - 16} 82 ${x} 94 C${x + 16} 82 ${x + 26} 100 ${x} 118 Z" fill="#FF3B30" ${O}/>
+             <circle cx="${x - 7}" cy="96" r="3.5" fill="#fff"/>`).join(''),
+    ],
+    // ---- LEGS (drawn behind the body) ----
+    [
+      () => `<rect x="94" y="268" width="36" height="72" rx="15" fill="#FF7A00" ${O}/><rect x="170" y="268" width="36" height="72" rx="15" fill="#FF7A00" ${O}/>
+             <ellipse cx="102" cy="344" rx="32" ry="16" fill="#FF7A00" ${O}/><ellipse cx="198" cy="344" rx="32" ry="16" fill="#FF7A00" ${O}/>`,
+      () => [88, 126, 174, 212].map((x, i) =>
+              line(`M${x} 278 q${i % 2 ? 14 : -14} 22 0 36 q${i % 2 ? -14 : 14} 20 ${i < 2 ? -8 : 8} 40`, '#17A2FF', 18)).join(''),
+      () => [112, 188].map(x =>
+              line(`M${x} 276 L${x - 16} 288 L${x + 16} 300 L${x - 16} 312 L${x + 16} 324 L${x} 334`, '#FFE000', 8) +
+              `<circle cx="${x}" cy="346" r="17" fill="#FF3B30" ${O}/>`).join(''),
+      // One big wheel
+      () => `<rect x="141" y="268" width="18" height="60" fill="#C3C8D8" ${O}/>
+             <circle cx="150" cy="332" r="30" fill="#4B2FD6" ${O}/>
+             <path d="M150 304 V360 M122 332 H178 M130 312 L170 352 M170 312 L130 352" stroke="#C4B0FF" stroke-width="4"/>
+             <circle cx="150" cy="332" r="9" fill="#FFE000" ${O}/>`,
+      // Rocket boots
+      () => [114, 186].map(x => `<rect x="${x - 12}" y="268" width="24" height="64" rx="8" fill="#FF8CC0" ${O}/>
+             <path d="M${x - 11} 344 L${x} 362 L${x + 11} 344 Z" fill="#FFA000" ${O} stroke-width="4"/>
+             <rect x="${x - 26}" y="318" width="52" height="30" rx="10" fill="#FF3B30" ${O}/>`).join(''),
+      // Bird legs with three toes
+      () => [[122, -1], [178, 1]].map(([x, d]) =>
+              line(`M${x} 276 L${x + 10 * d} 318 L${x} 340`, '#FFA000', 7) +
+              line(`M${x} 340 l${-20 * d} 10 M${x} 340 l0 14 M${x} 340 l${20 * d} 10`, '#FFA000', 7)).join(''),
+    ],
+    // ---- NOSE ----
+    [
+      () => `<path d="M140 124 L198 138 L140 150 Z" fill="#FF7A00" ${O}/>
+             <path d="M156 130 l4 6 M172 134 l3 5" stroke="#F55F00" stroke-width="4" stroke-linecap="round"/>`,
+      () => `<circle cx="150" cy="136" r="16" fill="#FF3B30" ${O}/><circle cx="144" cy="130" r="4.5" fill="#fff"/>`,
+      () => `<ellipse cx="150" cy="136" rx="22" ry="15" fill="#FF8CC0" ${O}/>
+             <ellipse cx="142" cy="136" rx="4" ry="6" fill="#D01F6E"/><ellipse cx="158" cy="136" rx="4" ry="6" fill="#D01F6E"/>`,
+      // Little nose with a curly mustache
+      () => `<circle cx="150" cy="132" r="9" fill="#D01F6E" ${O} stroke-width="4"/>
+             <path d="M150 146 C140 138 124 138 116 148 C124 146 128 152 136 152 C142 152 148 150 150 146 C152 150 158 152 164 152 C172 152 176 146 184 148 C176 138 160 138 150 146 Z" fill="#6E4529" ${O} stroke-width="4"/>`,
+      // Elephant trunk
+      () => line('M150 126 Q148 168 168 178 Q184 182 182 166', '#C4B0FF', 16),
+      // Bunny nose
+      () => `<path d="M140 130 L160 130 L150 142 Z" fill="#FF8CC0" ${O} stroke-width="4"/>
+             <circle cx="126" cy="140" r="2.5" fill="${INK}"/><circle cx="120" cy="134" r="2.5" fill="${INK}"/><circle cx="120" cy="146" r="2.5" fill="${INK}"/>
+             <circle cx="174" cy="140" r="2.5" fill="${INK}"/><circle cx="180" cy="134" r="2.5" fill="${INK}"/><circle cx="180" cy="146" r="2.5" fill="${INK}"/>`,
+    ],
+    // ---- HAT ----
+    [
+      () => `<g transform="rotate(-12 150 60)">
+               <path d="M110 64 L150 -18 L190 64 Z" fill="#00E07A" ${O}/>
+               <path d="M126 32 L174 32 M118 50 L182 50" stroke="#FFE000" stroke-width="9" stroke-linecap="round"/>
+               <path d="M110 64 L150 -18 L190 64 Z" fill="none" ${O}/>
+               <circle cx="150" cy="-22" r="13" fill="#FF4FA3" ${O}/>
+             </g>`,
+      () => `<path d="M92 66 A58 50 0 0 1 208 66 Z" fill="#FF3B30" ${O}/>
+             <path d="M150 16 A58 50 0 0 1 208 66 L150 66 Z" fill="#1F8CFF" ${O}/>
+             <path d="M150 16 L150 -2" ${O}/>
+             <g class="prop"><ellipse cx="150" cy="-6" rx="36" ry="8" fill="#FFE000" ${O}/></g>
+             <circle cx="150" cy="-6" r="6" fill="${INK}"/>`,
+      () => `<g transform="rotate(8 150 60)">
+               <rect x="114" y="-4" width="72" height="66" rx="6" fill="#4B2FD6" ${O}/>
+               <rect x="114" y="38" width="72" height="14" fill="#FF4FA3"/>
+               <rect x="114" y="-4" width="72" height="66" rx="6" fill="none" ${O}/>
+               <ellipse cx="150" cy="64" rx="64" ry="11" fill="#4B2FD6" ${O}/>
+               <circle cx="178" cy="44" r="7" fill="#FFE000"/>
+               <circle cx="178" cy="34" r="6" fill="#fff" ${O}/><circle cx="188" cy="44" r="6" fill="#fff" ${O}/><circle cx="178" cy="54" r="6" fill="#fff" ${O}/><circle cx="168" cy="44" r="6" fill="#fff" ${O}/>
+               <circle cx="178" cy="44" r="6" fill="#FFE000" ${O}/>
+             </g>`,
+      // Puffy chef hat
+      () => blob([[118, 22, 22], [150, 10, 26], [182, 22, 22], [150, 34, 24]], '#FFFFFF') +
+            `<rect x="114" y="32" width="72" height="32" rx="4" fill="#FFFFFF" ${O}/>`,
+      // Big bow
+      () => `<path d="M150 52 C122 18 98 32 106 58 C112 76 132 66 150 52 Z M150 52 C178 18 202 32 194 58 C188 76 168 66 150 52 Z" fill="#FF4FA3" ${O}/>
+             <circle cx="150" cy="52" r="11" fill="#FF8CC0" ${O}/>`,
+      // Viking helmet with horns
+      () => `<path d="M100 48 Q72 40 66 6 Q86 26 108 30 Z M200 48 Q228 40 234 6 Q214 26 192 30 Z" fill="#FFF6A8" ${O}/>
+             <path d="M94 66 A56 50 0 0 1 206 66 Z" fill="#C3C8D8" ${O}/>
+             <rect x="92" y="56" width="116" height="12" rx="4" fill="#FFA000" ${O}/>
+             <circle cx="150" cy="38" r="6" fill="#FFA000" ${O} stroke-width="4"/>`,
+    ],
+    // ---- ARMS (drawn behind the body) ----
+    [
+      // Noodle arms with mittens: one waving, one hanging down
+      () => line('M84 228 Q44 222 34 176', '#FF4FA3', 14) + line('M216 232 Q258 246 266 290', '#FF4FA3', 14) +
+            `<circle cx="32" cy="170" r="15" fill="#FF4FA3" ${O}/><circle cx="20" cy="178" r="7" fill="#FF4FA3" ${O}/>
+             <circle cx="267" cy="296" r="15" fill="#FF4FA3" ${O}/><circle cx="281" cy="290" r="7" fill="#FF4FA3" ${O}/>`,
+      // Chunky arms with three-finger hands, both waving
+      () => line('M86 236 L40 206', '#17A2FF', 24) + line('M214 236 L260 206', '#17A2FF', 24) +
+            [[34, 200, -1], [266, 200, 1]].map(([x, y, d]) =>
+              line(`M${x} ${y} l${8 * d} -18 M${x} ${y} l${-4 * d} -19 M${x} ${y} l${-16 * d} -9`, '#17A2FF', 8)).join(''),
+      // Crab claws
+      () => line('M84 242 L40 252', '#FF3B30', 14) + line('M216 242 L260 252', '#FF3B30', 14) +
+            line('M40 252 q-12 -20 -30 -16', '#FF3B30', 12) + line('M40 252 q-20 2 -26 18', '#FF3B30', 12) +
+            line('M260 252 q12 -20 30 -16', '#FF3B30', 12) + line('M260 252 q20 2 26 18', '#FF3B30', 12),
+      // Leafy twig arms
+      () => line('M84 232 L24 196', '#8B5A2B', 10) + line('M216 232 L276 196', '#8B5A2B', 10) +
+            line('M50 212 L40 228', '#8B5A2B', 7) + line('M250 212 L260 228', '#8B5A2B', 7) +
+            [[24, 196], [40, 230], [276, 196], [260, 230]].map(([x, y]) =>
+              `<ellipse cx="${x}" cy="${y}" rx="9" ry="15" transform="rotate(${x < 150 ? -35 : 35} ${x} ${y})" fill="#00E07A" ${O} stroke-width="4"/>`).join(''),
+      // Wiggly tentacle arms
+      () => line('M84 240 q-18 -16 -34 0 q-14 14 -28 -2', '#00D9C8', 14) + line('M216 240 q18 -16 34 0 q14 14 28 -2', '#00D9C8', 14),
+      // Little wings
+      () => `<path d="M90 222 C46 180 6 196 14 236 C24 226 34 232 36 246 C46 236 56 242 60 256 C68 246 78 248 90 252 Z" fill="#FFFFFF" ${O}/>
+             <path d="M210 222 C254 180 294 196 286 236 C276 226 266 232 264 246 C254 236 244 242 240 256 C232 246 222 248 210 252 Z" fill="#FFFFFF" ${O}/>`,
+    ],
+  ];
+
+  // Small, generic icons for the chart / progress / chooser.
+  const ICON = [
+    `<ellipse cx="50" cy="58" rx="40" ry="30" fill="#7B4DFF" ${O}/><ellipse cx="50" cy="64" rx="22" ry="15" fill="#C4B0FF"/>`,
+    `<circle cx="50" cy="52" r="34" fill="#FFE000" ${O}/><path d="M34 62 Q50 76 66 62" fill="none" ${O}/>`,
+    `<circle cx="30" cy="50" r="19" fill="#fff" ${O}/><circle cx="70" cy="50" r="19" fill="#fff" ${O}/><circle cx="33" cy="53" r="8" fill="${INK}"/><circle cx="73" cy="53" r="8" fill="${INK}"/>`,
+    `<rect x="26" y="14" width="18" height="58" rx="8" fill="#FF7A00" ${O}/><rect x="56" y="14" width="18" height="58" rx="8" fill="#FF7A00" ${O}/>
+     <ellipse cx="28" cy="78" rx="20" ry="10" fill="#FF7A00" ${O}/><ellipse cx="72" cy="78" rx="20" ry="10" fill="#FF7A00" ${O}/>`,
+    `<path d="M22 36 L84 50 L22 66 Z" fill="#FF7A00" ${O}/><path d="M22 36 L10 26 M22 50 L8 50 M22 66 L10 76" stroke="#00E07A" stroke-width="7" stroke-linecap="round"/>`,
+    `<path d="M22 86 L50 14 L78 86 Z" fill="#00E07A" ${O}/><path d="M36 50 L64 50 M30 68 L70 68" stroke="#FFE000" stroke-width="7" stroke-linecap="round"/>
+     <path d="M22 86 L50 14 L78 86 Z" fill="none" ${O}/><circle cx="50" cy="12" r="9" fill="#FF4FA3" ${O}/>`,
+    line('M40 62 Q20 52 20 28', '#FF4FA3', 9) + line('M60 62 Q80 72 82 92', '#FF4FA3', 9) +
+    `<circle cx="20" cy="22" r="10" fill="#FF4FA3" ${O}/><circle cx="82" cy="90" r="10" fill="#FF4FA3" ${O}/>
+     <ellipse cx="50" cy="62" rx="16" ry="11" fill="#C4B0FF" ${O}/>`,
+    // STAR: pick any part
+    `<path d="M50 6 L62 37 L95 38 L69 58 L78 91 L50 72 L22 91 L31 58 L5 38 L38 37 Z" fill="#FFE000" ${O}/>`,
+  ];
+  const iconSVG = p => `<svg viewBox="0 0 100 100">${ICON[p]}</svg>`;
+
+  // Spare-part token: a golden gear.
+  const gearPath = (() => {
+    let d = '';
+    for (let i = 0; i < 8; i++) {
+      const a = i * Math.PI / 4;
+      for (const [da, r] of [[-0.22, 40], [-0.16, 48], [0.16, 48], [0.22, 40]]) {
+        d += (d ? 'L' : 'M') + (50 + r * Math.cos(a + da)).toFixed(1) + ' ' + (50 + r * Math.sin(a + da)).toFixed(1) + ' ';
+      }
+    }
+    return d + 'Z';
+  })();
+  const tokenSVG = full => full
+    ? `<svg class="tok" viewBox="0 0 100 100"><path d="${gearPath}" fill="#FFE000" ${O}/><circle cx="50" cy="50" r="14" fill="#fff" ${O}/></svg>`
+    : `<svg class="tok" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="#C3C8D8" stroke-width="6" stroke-dasharray="10 9"/></svg>`;
+  // "3 gears = any part" trade icon
+  const tradeIcon = `<svg viewBox="0 0 100 100"><path d="M20 50 H70" ${O} stroke-width="10"/><path d="M56 32 L78 50 L56 68" fill="none" ${O} stroke-width="10"/></svg>`;
+  const gearMini = `<svg viewBox="0 0 100 100"><path d="${gearPath}" fill="#FFE000" ${O}/><circle cx="50" cy="50" r="14" fill="#fff" ${O}/></svg>`;
+  const questionIcon = `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="42" fill="#fff" ${O}/><path d="M36 38 Q36 22 50 22 Q66 22 66 37 Q66 48 52 54 L52 62" fill="none" ${O} stroke-width="9"/><circle cx="52" cy="77" r="6" fill="${INK}"/></svg>`;
+
+  const CHECK = `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="#00E07A" ${O}/><path d="M28 52 L44 68 L74 34" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const CROSS = `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="#FF3B30" ${O}/><path d="M33 33 L67 67 M67 33 L33 67" stroke="#fff" stroke-width="12" stroke-linecap="round"/></svg>`;
+  const LOCK = `<svg viewBox="0 0 100 100"><path d="M32 46 V34 A18 18 0 0 1 68 34 V46" fill="none" ${O} stroke-width="10"/><rect x="20" y="44" width="60" height="46" rx="10" fill="#FFE000" ${O}/><path d="M50 60 V74" stroke="${INK}" stroke-width="8" stroke-linecap="round"/></svg>`;
+  const ARROW = `<svg class="rarrow" viewBox="0 0 100 60"><path d="M10 30 H80 M60 10 L82 30 L60 50" fill="none" stroke="${INK}" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  const HEART = `<svg viewBox="0 0 100 100"><path d="M50 86 C10 58 10 22 32 20 C42 19 48 26 50 32 C52 26 58 19 68 20 C90 22 90 58 50 86Z" fill="#FF3B30" ${O}/></svg>`;
+  const SPIN_ICON = `<svg viewBox="0 0 100 100"><path d="M80 50 A30 30 0 1 1 66 24" fill="none" stroke="${INK}" stroke-width="12" stroke-linecap="round"/><path d="M58 8 L78 26 L54 34 Z" fill="${INK}"/></svg>`;
+  // ---- Silly name badges: a name, a colour and a little picture each ----
+  const BADGES = [
+    ['Captain Wiggles', 'var(--sky)', line('M14 54 q9 -18 18 0 t18 0 t18 0 t18 0', '#17A2FF', 9)],
+    ['Noodle Nose', 'var(--lemon)', line('M50 50 m-4 0 a6 6 0 1 1 12 0 a14 14 0 1 1 -26 4 a22 22 0 1 1 40 6', '#FFA000', 7)],
+    ['Bouncy Bean', 'var(--mint)', `<path d="M30 30 C46 18 66 26 64 42 C62 52 74 54 72 66 C70 84 40 86 30 70 C22 58 18 40 30 30 Z" fill="#00E07A" ${O}/><path d="M80 18 v12 M90 24 h-10" stroke="${INK}" stroke-width="5" stroke-linecap="round"/>`],
+    ['Princess Pickle', 'var(--grape)', `<rect x="34" y="24" width="32" height="64" rx="16" fill="#5BC236" ${O}/><circle cx="44" cy="44" r="3" fill="#2E7D16"/><circle cx="56" cy="60" r="3" fill="#2E7D16"/><circle cx="44" cy="74" r="3" fill="#2E7D16"/><path d="M36 22 L36 8 L44 16 L50 4 L56 16 L64 8 L64 22 Z" fill="#FFE000" ${O} stroke-width="4"/>`],
+    ['Wobbly Jelly', 'var(--pink)', `<path d="M18 78 C18 40 32 22 50 22 C68 22 82 40 82 78 Z" fill="#FF4FA3" ${O}/><path d="M34 44 Q38 34 46 32" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/><path d="M12 82 H88" ${O} stroke-width="7"/>`],
+    ['Zippy Zoom', 'var(--lemon)', `<path d="M58 6 L22 56 H46 L38 94 L78 40 H54 Z" fill="#FFE000" ${O}/>`],
+    // Muffin: short pleated cup under a wide domed top with sprinkles
+    ['Fuzzy Muffin', 'var(--peach)', `<path d="M22 58 L30 86 H70 L78 58 Z" fill="#FF7A00" ${O}/>
+      <path d="M38 60 L41 84 M50 60 V84 M62 60 L59 84" stroke="${INK}" stroke-width="3"/>
+      <path d="M10 60 C10 32 30 22 50 22 C70 22 90 32 90 60 Z" fill="#FF8CC0" ${O}/>
+      <path d="M30 40 l5 -3 M48 32 l6 1 M64 42 l4 4 M40 50 l-4 3 M58 52 l5 -1 M74 52 l2 -5" stroke="#FFF" stroke-width="5" stroke-linecap="round"/>`],
+    ['Bubble Toes', 'var(--sky)', `<circle cx="38" cy="58" r="22" fill="#BFE6FF" ${O}/><circle cx="68" cy="36" r="14" fill="#BFE6FF" ${O}/><circle cx="72" cy="72" r="9" fill="#BFE6FF" ${O}/><path d="M28 50 Q30 42 38 40" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>`],
+    ['Sparkle Socks', 'var(--grape)', `<path d="M36 10 H62 V56 L78 66 C88 72 82 90 70 88 L40 80 C32 78 36 66 36 60 Z" fill="#FF4FA3" ${O}/><path d="${starPath(49, 32, 11, 5)}" fill="#FFE000" ${O} stroke-width="3"/>`],
+    ['Giggle Pop', 'var(--pink)', `<path d="M50 56 V94" ${O} stroke-width="7"/><circle cx="50" cy="36" r="26" fill="#FFE000" ${O}/><path d="M50 36 m-4 0 a4 4 0 1 1 8 0 a10 10 0 1 1 -18 2 a16 16 0 1 1 30 4" fill="none" stroke="#FF4FA3" stroke-width="5" stroke-linecap="round"/>`],
+    ['Silly Sprout', 'var(--mint)', `<path d="M50 90 V44" ${O} stroke-width="7"/><path d="M50 50 C30 50 18 36 20 20 C38 20 50 32 50 50 Z M50 44 C66 44 80 32 80 18 C64 18 50 28 50 44 Z" fill="#00E07A" ${O}/><path d="M30 90 H70" ${O} stroke-width="7"/>`],
+    ['Turbo Toast', 'var(--peach)', `<path d="M22 40 C14 20 34 12 50 16 C66 12 86 20 78 40 V84 H22 Z" fill="#E8B266" ${O}/><path d="M32 42 C28 30 40 26 50 28 C60 26 72 30 68 42 V74 H32 Z" fill="#FFE7B0"/><path d="M40 52 h4 M56 52 h4 M42 62 q8 6 16 0" stroke="${INK}" stroke-width="4" stroke-linecap="round" fill="none"/>`],
+  ].map(([name, color, art]) => ({ name, color, icon: `<svg viewBox="0 0 100 100">${art}</svg>` }));
+  // Each player's badge: one of BADGES, a typed name ({ name, color, icon }), or null for "Player 1/2".
+  let chosenBadges = [null, null];
+  const nm = i => chosenBadges[i] ? chosenBadges[i].name : `Player ${i + 1}`;
+  const SMILEY = `<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="38" fill="#FFE000" ${O}/><circle cx="37" cy="43" r="5" fill="${INK}"/><circle cx="63" cy="43" r="5" fill="${INK}"/><path d="M33 60 Q50 76 67 60" fill="none" ${O}/></svg>`;
+  // Typed names: keep letters, numbers, spaces and simple punctuation, up to 16 characters.
+  const cleanName = t => t.replace(/[^\p{L}\p{N} '.!-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 16);
+  const poss = i => { const n = nm(i); return n.endsWith('s') ? `${n}'` : `${n}'s`; };
+
+  const A_PART = ['a body', 'a head', 'eyes', 'legs', 'a nose', 'a hat', 'arms', 'a star'];
+
+  // Spinner wedge colours, one per number 1-6 (the chart tiles use them too).
+  const WEDGE_FILL = ['#D8CCFF', '#FFF6A8', '#B8F7D8', '#BFE6FF', '#FFD0E6', '#FFDDB8', '#C8F2EE', '#FFD4CC'];
+  const swapArrows = `<path d="M20 36 H74 M62 24 L76 36 L62 48" fill="none" stroke="${INK}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                      <path d="M80 64 H26 M38 52 L24 64 L38 76" fill="none" stroke="${INK}" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>`;
+  // A round "spot": a spinner number in its wedge colour, or the Swap token.
+  function spotInner(face) {
+    if (face === 'swap') return `<circle cx="50" cy="50" r="44" fill="#4DEBA6" ${O}/>${swapArrows}`;
+    return `<circle cx="50" cy="50" r="44" fill="${WEDGE_FILL[face - 1]}" ${O}/>
+      <text x="50" y="68" text-anchor="middle" font-size="52" font-weight="800" fill="${INK}" font-family="system-ui, sans-serif">${face}</text>`;
+  }
+  const spotSVG = face => `<svg viewBox="0 0 100 100">${spotInner(face)}</svg>`;
+
+  // ---- Critter rendering ----
+  function critterSVG(parts, popPart) {
+    let g = '';
+    if (parts[BODY] == null) {
+      g += `<ellipse cx="150" cy="242" rx="96" ry="66" fill="none" stroke="#C3C8D8" stroke-width="6" stroke-dasharray="16 12"/>`;
+    } else if (parts[HEAD] == null) {
+      g += `<circle cx="150" cy="118" r="64" fill="none" stroke="#C3C8D8" stroke-width="6" stroke-dasharray="16 12"/>`;
+    }
+    for (const p of DRAW_ORDER) {
+      if (parts[p] == null) continue;
+      g += `<g class="part${p === popPart ? ' pop' : ''}">${ART[p][parts[p]]()}</g>`;
+    }
+    return `<svg viewBox="0 -54 300 424" preserveAspectRatio="xMidYMid meet"><g class="critter">${g}</g></svg>`;
+  }
+
+  // ================================================================
+  // Sound (tiny WebAudio blips; no files)
+  // ================================================================
+  let audio = null, soundOn = true;
+  function tone(freq, dur, { type = 'sine', vol = 0.12, at = 0, to = null } = {}) {
+    if (!soundOn) return;
+    try {
+      audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+      const t = audio.currentTime + at;
+      const o = audio.createOscillator(), g = audio.createGain();
+      o.type = type; o.frequency.setValueAtTime(freq, t);
+      if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur);
+      g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+      o.connect(g).connect(audio.destination); o.start(t); o.stop(t + dur + 0.02);
+    } catch (e) { /* audio unavailable: play silently */ }
+  }
+  const sfx = {
+    rattle: () => { for (let i = 0; i < 5; i++) tone(300 + Math.random() * 300, 0.05, { type: 'square', vol: 0.05, at: i * 0.11 }); },
+    pop: () => tone(400, 0.18, { type: 'triangle', to: 900 }),
+    token: () => { tone(880, 0.12, { type: 'triangle' }); tone(1320, 0.18, { type: 'triangle', at: 0.1 }); },
+    nope: () => tone(220, 0.2, { type: 'sawtooth', vol: 0.05, to: 160 }),
+    // "Wah wah wah waaah": the spin landed on nothing the player can use.
+    sad: () => {
+      [[392, 0], [370, 0.32], [349, 0.64]].forEach(([f, at]) =>
+        tone(f, 0.3, { type: 'triangle', vol: 0.16, at, to: f * 0.97 }));
+      tone(330, 0.95, { type: 'triangle', vol: 0.16, at: 0.96, to: 290 });
+      tone(333, 0.95, { type: 'sine', vol: 0.06, at: 0.96, to: 286 });
+    },
+    // Short happy chime: at least one part fits.
+    yay: () => { tone(660, 0.12, { type: 'triangle' }); tone(880, 0.12, { type: 'triangle', at: 0.1 }); tone(1320, 0.2, { type: 'triangle', at: 0.2 }); },
+    swap: () => { tone(500, 0.15, { type: 'triangle', to: 800 }); tone(800, 0.15, { type: 'triangle', at: 0.15, to: 500 }); },
+    turn: () => tone(660, 0.1, { type: 'sine', vol: 0.06 }),
+    tick: () => tone(1500, 0.025, { type: 'square', vol: 0.025 }),
+    whoosh: () => tone(180, 0.35, { type: 'sine', vol: 0.08, to: 500 }),
+    win: () => [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, 0.22, { type: 'triangle', at: i * 0.13 })),
+    owl: () => { tone(420, 0.25, { vol: 0.08, to: 360 }); tone(360, 0.35, { vol: 0.08, at: 0.28, to: 300 }); },
+  };
+
+  // ================================================================
+  // State
+  // ================================================================
+  const $ = s => document.querySelector(s);
+  const rand = n => Math.floor(Math.random() * n);
+  // Resolves only if the same game is still running, so a game that was reset
+  // mid-roll never resumes against the new state.
+  const wait = ms => { const g = S; return new Promise(r => setTimeout(() => { if (S === g) r(); }, ms)); };
+
+  let S = null;
+  function newState(mode) {
+    return {
+      mode,                                   // 'race' | 'team'
+      cur: 0,
+      players: [{ parts: {}, tokens: 0 }, { parts: {}, tokens: 0 }],
+      chart: [BODY, HEAD, EYES, LEGS, NOSE, HAT, ARMS, STAR],   // chart[face-1] = part id
+      rolls: 0,
+      // Swap happens twice a game: first from spin 4-6, then 4-6 spins after
+      // the first one, each time once both critters share a kind of part.
+      swapAt: 4 + rand(3),
+      swapsDone: 0,
+      owl: OWL_ROUNDS,
+      phase: 'roll',                          // 'roll' | 'pick' | 'busy' | 'done' | 'over'
+      shown: [0, 3],                          // faces (0-5) under the gold and pink pointers
+      angle: 0,                               // wheel rotation in degrees
+      revealed: false,                        // true once the dice have landed this turn
+      chosen: null,                           // index of the die the player took
+      special: null,                          // 'swap' while a Swap spin is showing
+      over: false,
+    };
+  }
+
+  const other = i => 1 - i;
+  const has = (pi, p) => S.players[pi].parts[p] != null;
+  const canAdd = (pi, p) => p === STAR ? addable(pi).length > 0 : !has(pi, p) && NEEDS[p].every(q => has(pi, q));
+  const complete = pi => PART_NAMES.every((_, p) => has(pi, p));
+  const addable = pi => PART_NAMES.map((_, p) => p).filter(p => canAdd(pi, p));
+  // Team mode: once your critter is done you help your partner instead.
+  const targetFor = pi => (S.mode === 'team' && complete(pi)) ? other(pi) : pi;
+  const swapTypes = () => PART_NAMES.map((_, p) => p)
+    .filter(p => has(0, p) && has(1, p) && S.players[0].parts[p] !== S.players[1].parts[p]);
+
+  // ================================================================
+  // Rendering
+  // ================================================================
+  const panels = [$('#panel0'), $('#panel1')];
+
+  function renderChart() {
+    const chart = $('#chart');
+    if (!chart.children.length) {
+      for (let f = 0; f < WEDGES; f++) {
+        const t = document.createElement('div');
+        t.className = 'tile';
+        t.style.setProperty('--wf', WEDGE_FILL[f]);
+        t.innerHTML = `<div class="face">${spotSVG(f + 1)}</div>
+          <svg class="eq" viewBox="0 0 20 20"><path d="M2 6H18M2 14H18" stroke="${INK}" stroke-width="4" stroke-linecap="round"/></svg>
+          <div class="icon"></div><div class="tbadge check">${CHECK}</div><div class="tbadge lock">${LOCK}</div>`;
+        chart.appendChild(t);
+      }
+    }
+    [...chart.children].forEach((t, f) => {
+      t.querySelector('.icon').innerHTML = iconSVG(S.chart[f]);
+      t.setAttribute('aria-label', `${f + 1} = ${LABEL[S.chart[f]]}`);
+    });
+    updateChartState();
+  }
+  // Mark chart parts the current player already has (check) or can't add yet (lock).
+  function updateChartState() {
+    const pi = S && !S.over ? targetFor(S.cur) : null;
+    [...$('#chart').children].forEach((t, f) => {
+      const p = S ? S.chart[f] : 0;
+      t.classList.toggle('have', pi != null && has(pi, p));
+      t.classList.toggle('locked', pi != null && !has(pi, p) && !canAdd(pi, p));
+    });
+  }
+
+  function renderPanel(pi, popPart, newToken) {
+    const pan = panels[pi], pl = S.players[pi];
+    pan.querySelector('.stage').innerHTML = critterSVG(pl.parts, popPart);
+    const tag = pan.querySelector('.nameTag'), badge = chosenBadges[pi];
+    tag.hidden = !badge;
+    if (badge) {
+      tag.style.background = badge.color;
+      tag.innerHTML = `${badge.icon}<span></span>`;
+      tag.querySelector('span').textContent = badge.name;
+    }
+    pan.querySelector('.progress').innerHTML = PART_NAMES.map((n, p) =>
+      `<div class="pi${has(pi, p) ? ' got' : ''}" aria-label="${n}">${iconSVG(p)}</div>`).join('');
+    let toks = '';
+    for (let i = 0; i < MAX_TOKENS; i++) toks += tokenSVG(i < pl.tokens);
+    const tokens = pan.querySelector('.tokens');
+    tokens.innerHTML = toks;
+    tokens.setAttribute('aria-label', `${pl.tokens} of ${MAX_TOKENS} spare parts`);
+    if (newToken === 'new' && pl.tokens > 0) tokens.children[pl.tokens - 1].classList.add('new');
+    if (newToken === 'full') [...tokens.querySelectorAll('.tok')].forEach(t => t.classList.add('full'));
+    updateChartState();
+  }
+
+  function renderTurn() {
+    const col = `var(--p${S.cur})`;
+    const badge = $('#turnBadge');
+    badge.textContent = S.cur + 1;
+    badge.style.background = col;
+    badge.setAttribute('aria-label', `${poss(S.cur)} turn`);
+    badge.classList.remove('flip'); void badge.offsetWidth; badge.classList.add('flip');
+    panels.forEach((p, i) => {
+      p.classList.toggle('active', i === S.cur && !S.over);
+      p.classList.toggle('idle', i !== S.cur && !S.over);
+    });
+    updateControls();
+  }
+
+  function updateControls() {
+    $('#wheel').classList.toggle('ready', S.phase === 'roll');
+    const me = S.cur;
+    const canCog = S.phase === 'roll' && S.players[me].tokens >= MAX_TOKENS && addable(targetFor(me)).length > 0;
+    const cb = $('#cogBtn');
+    cb.classList.toggle('show', canCog);
+    const nb = $('#nextBtn'), nxt = other(me);
+    nb.hidden = S.phase !== 'done';
+    $('#spinRow').hidden = !$('#dice').hidden || S.phase === 'done';
+    nb.style.background = `var(--p${nxt})`;
+    nb.innerHTML = `${ARROW}Go, ${nm(nxt)}!`;
+    nb.setAttribute('aria-label', `Start ${poss(nxt)} turn`);
+    setCoach(coachText());
+  }
+
+  // ---- Coach line ----
+  const listParts = ps => {
+    const w = ps.map(p => A_PART[p]);
+    return w.length < 2 ? w.join('') : w.slice(0, -1).join(', ') + ' or ' + w[w.length - 1];
+  };
+  const fitsWord = p => PLURAL.has(p) ? 'fit' : 'fits';
+  const theName = p => `The ${LABEL[p]}`;
+  const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+  function needText(pi) {
+    if (!has(pi, BODY)) return 'You need a body first.';
+    const a = addable(pi);
+    if (!has(pi, HEAD)) {
+      const others = a.filter(p => p !== HEAD);
+      return others.length ? `Next you need a head! ${cap(listParts(others))} fit too.` : 'Next you need a head!';
+    }
+    return a.length ? `Next you need ${listParts(a)}!` : '';
+  }
+  function coachText() {
+    if (!S || S.over) return null;
+    const me = S.cur, partner = other(me), n = `${nm(me)}`, team = S.mode === 'team';
+    const giftOnly = team && complete(me);
+    switch (S.phase) {
+      case 'roll': {
+        if (giftOnly) return `${n}, your critter is done! Tap the spinner to find a gift for ${nm(partner)}.`;
+        const cogs = $('#cogBtn').classList.contains('show') ? ' Or use your 3 cogs to pick any part!' : '';
+        return `${n}, tap the spinner! ${needText(me)}${cogs}`;
+      }
+      case 'spinning': return 'Round and round... wait for it to stop!';
+      case 'pick': {
+        const [a, b] = S.shown.map(f => S.chart[f]);
+        const giving = giftOnly || S.giftPick;
+        const who = giving ? partner : me;
+        const fa = canAdd(who, a), fb = canAdd(who, b);
+        if (giving) return `Tap a gift for ${nm(partner)}!`;
+        const gift = team ? ` The other is a gift for ${nm(partner)}.` : '';
+        if (fa && fb && a !== b) return `Both fit! Pick one.${gift}`;
+        const p = fa ? a : b;
+        return `${theName(p)} ${fitsWord(p)}! Tap ${PLURAL.has(p) ? 'them' : 'it'}.${gift}`;
+      }
+      case 'done': return team
+        ? `Nice! The owl closes its eyes a little. Tap Go for ${poss(partner)} turn.`
+        : `Nice! Tap Go for ${poss(partner)} turn.`;
+      default: return null;      // keep the current line while a card is open
+    }
+  }
+  function setCoach(text) {
+    if (text == null) return;
+    const c = $('#coach');
+    const col = S && !S.over ? `var(--p${S.cur})` : '#7B4DFF';
+    const html = `<span class="chip" style="background:${col}"></span><span>${text}</span>`;
+    if (c.innerHTML === html) return;
+    c.innerHTML = html;
+    c.classList.remove('pop'); void c.offsetWidth; c.classList.add('pop');
+  }
+
+  let owlId = 0;
+  function owlSVG(remaining) {
+    const s = 1 - remaining / OWL_ROUNDS;
+    const uid = ++owlId;             // 0 = wide awake, 1 = asleep
+    const lid = (cy, id) => `<clipPath id="${id}"><circle cx="${cy[0]}" cy="${cy[1]}" r="17"/></clipPath>
+      <rect clip-path="url(#${id})" x="${cy[0] - 18}" y="${cy[1] - 18}" width="36" height="${(36 * s).toFixed(1)}" fill="#9A6847"/>`;
+    const asleep = remaining <= 0;
+    return `
+      <path d="M28 36 L22 8 L46 26 Z M92 36 L98 8 L74 26 Z" fill="#9A6847" ${O}/>
+      <ellipse cx="60" cy="68" rx="44" ry="48" fill="#9A6847" ${O}/>
+      <ellipse cx="60" cy="86" rx="26" ry="26" fill="#F3DDB8"/>
+      <path d="M48 80 q6 6 12 0 q6 6 12 0 M48 94 q6 6 12 0 q6 6 12 0" fill="none" stroke="#CDA77A" stroke-width="3"/>
+      <circle cx="42" cy="52" r="17" fill="#fff" ${O}/><circle cx="78" cy="52" r="17" fill="#fff" ${O}/>
+      ${asleep ? '' : `<circle cx="42" cy="54" r="7" fill="${INK}"/><circle cx="78" cy="54" r="7" fill="${INK}"/>`}
+      ${lid([42, 52], 'owlL' + uid)}${lid([78, 52], 'owlR' + uid)}
+      ${asleep ? `<path d="M30 54 Q42 62 54 54 M66 54 Q78 62 90 54" fill="none" ${O}/>` : ''}
+      <circle cx="42" cy="52" r="17" fill="none" ${O}/><circle cx="78" cy="52" r="17" fill="none" ${O}/>
+      <path d="M54 64 L66 64 L60 76 Z" fill="#FFA000" ${O}/>
+      ${asleep ? `<text x="96" y="22" font-size="22" font-weight="900" fill="#6B6F8E">z</text><text x="104" y="8" font-size="16" font-weight="900" fill="#6B6F8E">z</text>` : ''}`;
+  }
+  function renderOwl(tick) {
+    $('#owlBox').classList.toggle('show', S.mode === 'team');
+    if (S.mode !== 'team') return;
+    const owl = $('#owl');
+    owl.innerHTML = owlSVG(S.owl);
+    if (tick) { owl.classList.remove('tick'); void owl.offsetWidth; owl.classList.add('tick'); }
+    let m = '';
+    for (let i = 0; i < OWL_ROUNDS; i++) m += `<div class="moon${i >= S.owl ? ' gone' : ''}"></div>`;
+    $('#moons').innerHTML = m;
+  }
+
+  function renderAll() {
+    renderChart();
+    renderPanel(0); renderPanel(1);
+    renderWheel(); renderDice();
+    renderOwl(false);
+    renderTurn();
+  }
+
+  // ================================================================
+  // Overlays
+  // ================================================================
+  // Show 3 previews of the target critter, each with one version of the part.
+  function pickVersion(target, part, helper) {
+    return new Promise(resolve => {
+      const ov = $('#picker');
+      const card = ov.querySelector('.card');
+      card.style.borderColor = `var(--p${target})`;
+      ov.querySelector('.cardTitle').textContent = helper
+        ? `Pick ${A_PART[part]} for ${nm(target)}!`
+        : `${nm(target)}, pick the ${PART_NAMES[part]} you like best!`;
+      ov.querySelector('.cardHead').innerHTML = iconSVG(part) +
+        (helper ? `<svg viewBox="0 0 100 100"><path d="M50 86 C10 58 10 22 32 20 C42 19 48 26 50 32 C52 26 58 19 68 20 C90 22 90 58 50 86Z" fill="#FF3B30" ${O}/></svg>` : '');
+      const opts = ov.querySelector('.opts');
+      opts.innerHTML = '';
+      // Show 3 versions picked at random from all of this part's versions.
+      const pool = ART[part].map((_, v) => v);
+      for (let k = pool.length - 1; k > 0; k--) { const j = rand(k + 1); [pool[k], pool[j]] = [pool[j], pool[k]]; }
+      for (const v of pool.slice(0, 3)) {
+        const b = document.createElement('button');
+        b.className = 'opt';
+        b.setAttribute('aria-label', `${PART_NAMES[part]} ${v + 1}`);
+        b.innerHTML = critterSVG({ ...S.players[target].parts, [part]: v }, part);
+        b.onclick = () => { ov.classList.remove('show'); resolve(v); };
+        opts.appendChild(b);
+      }
+      ov.classList.add('show');
+    });
+  }
+
+  // Choose a part type from icons. Resolves to the part id, or null for "no thanks".
+  function chooseType(types, headSVG, color, allowSkip = true, title = '') {
+    return new Promise(resolve => {
+      const ov = $('#chooser');
+      ov.querySelector('.cardTitle').textContent = title;
+      ov.querySelector('.card').style.borderColor = color;
+      ov.querySelector('.cardHead').innerHTML = headSVG;
+      const opts = ov.querySelector('.opts');
+      opts.innerHTML = '';
+      types.forEach(p => {
+        const b = document.createElement('button');
+        b.className = 'opt small';
+        b.setAttribute('aria-label', PART_NAMES[p]);
+        b.innerHTML = iconSVG(p);
+        b.onclick = () => { ov.classList.remove('show'); resolve(p); };
+        opts.appendChild(b);
+      });
+      const x = ov.querySelector('.xBtn');
+      x.innerHTML = `<svg viewBox="0 0 100 100"><path d="M20 20 L80 80 M80 20 L20 80" stroke="#fff" stroke-width="18" stroke-linecap="round"/></svg>`;
+      x.style.display = allowSkip ? '' : 'none';
+      x.onclick = () => { ov.classList.remove('show'); resolve(null); };
+      ov.classList.add('show');
+    });
+  }
+
+  // Big "what happened" card. Waits for the player to tap OK (or anywhere).
+  function showResult(html, color) {
+    const g = S;
+    return new Promise(res => {
+      const ov = $('#result'), card = ov.querySelector('.card');
+      card.innerHTML = html + `<button class="okBtn">${CHECK}OK</button>`;
+      card.style.borderColor = color;
+      ov.classList.add('show');
+      let done = false;
+      const fin = () => {
+        if (done) return;
+        done = true;
+        ov.classList.remove('show');
+        if (S === g) res();
+      };
+      ov.onclick = fin;
+    });
+  }
+
+  function flash(inner) {
+    const f = $('#flash');
+    f.innerHTML = inner;
+    f.classList.remove('show'); void f.getBoundingClientRect(); f.classList.add('show');
+  }
+
+  // ================================================================
+  // Turn flow
+  // ================================================================
+  async function addPart(target, part, helper) {
+    const v = await pickVersion(target, part, helper);
+    S.players[target].parts[part] = v;
+    sfx.pop();
+    renderPanel(target, part);
+    return checkEnd();
+  }
+
+  function giveToken(target) {
+    const pl = S.players[target];
+    if (pl.tokens < MAX_TOKENS) { pl.tokens++; sfx.token(); renderPanel(target, null, 'new'); }
+    else { sfx.nope(); renderPanel(target, null, 'full'); }
+  }
+
+  // ---- Spinner ----
+  const WEDGE_PATH = (() => {
+    const r = 100, a = Math.PI / WEDGES, x = (r * Math.sin(a)).toFixed(2), y = (-r * Math.cos(a)).toFixed(2);
+    return `M0 0 L${-x} ${y} A${r} ${r} 0 0 1 ${x} ${y} Z`;
+  })();
+  // Face under the gold (top) pointer for a wheel turned `angle` degrees clockwise.
+  const faceAt = angle => ((Math.round(-angle / STEP) % WEDGES) + WEDGES) % WEDGES;
+  function renderWheel() {
+    const lit = S && S.revealed ? S.shown : [];
+    let g = '';
+    for (let f = 0; f < WEDGES; f++) {
+      const p = S ? S.chart[f] : f;
+      const cls = !lit.includes(f) ? '' : (lit[0] === f || p === STAR) ? ' lit0' : ' lit1';
+      g += `<g transform="rotate(${f * STEP})" class="wedge${cls}">
+        <path d="${WEDGE_PATH}" fill="${WEDGE_FILL[f]}" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>
+        <g class="up" data-f="${f}" data-cy="-72"><svg x="-21" y="-93" width="42" height="42" viewBox="0 0 100 100">${ICON[p]}</svg></g>
+        <g class="up" data-f="${f}" data-cy="-41"><text x="0" y="-33" text-anchor="middle" font-size="22" font-weight="700" fill="${INK}" font-family="system-ui, sans-serif">${f + 1}</text></g>
+      </g>`;
+    }
+    $('#wheel').innerHTML = `<g id="wheelRot" transform="rotate(${S ? S.angle : 0})">${g}</g>
+      <circle r="100" fill="none" stroke="${INK}" stroke-width="7"/>
+      <circle r="24" fill="#FFE000" stroke="${INK}" stroke-width="5"/>
+      <text class="hubLabel" x="0" y="5" text-anchor="middle" font-size="14" font-weight="800" fill="${INK}" font-family="system-ui, sans-serif">SPIN</text>
+      <path d="M-16 -123 L16 -123 L0 -90 Z" fill="#FFE000" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M-16 123 L16 123 L0 90 Z" fill="#FF8CC0" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>`;
+    setWheel(S ? S.angle : 0);
+  }
+  // Turn the wheel, keeping each wedge's icon and number upright so they stay readable.
+  function setWheel(angle) {
+    const rot = $('#wheelRot');
+    if (!rot) return;
+    rot.setAttribute('transform', `rotate(${angle})`);
+    rot.querySelectorAll('.up').forEach(u =>
+      u.setAttribute('transform', `rotate(${-(+u.dataset.f * STEP + angle)} 0 ${u.dataset.cy})`));
+  }
+
+  // fits / have / locked, for part p on critter pi
+  const fitBadge = (pi, p) => canAdd(pi, p) ? CHECK : has(pi, p) ? CROSS : LOCK;
+
+  function renderDice() {
+    const box = $('#dice');
+    const showChoices = !!(S.revealed || S.special);
+    box.hidden = !showChoices;
+    $('#spinRow').hidden = showChoices;
+    box.classList.toggle('single', !!S.special);
+    if (S.special) {
+      box.innerHTML = `<div class="dieChoice" aria-label="Swap"><div class="dface">${spotSVG(S.special)}</div></div>`;
+      return;
+    }
+    const me = S.cur, partner = other(me), team = S.mode === 'team';
+    // Giving only: your critter is done, or nothing fit you this spin.
+    const giftOnly = team && (complete(me) || !!S.giftPick);
+    // When one part fits, the other can't be tapped: a mis-tap shouldn't cost a turn.
+    const fitsWho = giftOnly ? partner : me;
+    const anyFits = S.revealed && S.shown.some(f => canAdd(fitsWho, S.chart[f]));
+    box.innerHTML = '';
+    S.shown.forEach((f, i) => {
+      const part = S.chart[f];
+      const blocked = anyFits && !canAdd(fitsWho, part);
+      const b = document.createElement('button');
+      let cls = 'dieChoice';
+      if (S.phase === 'pick') cls += blocked ? ' pickable blocked' : ' pickable';
+      if (part === STAR) cls += ' starChoice';
+      if (S.chosen != null) cls += i === S.chosen ? (giftOnly ? ' giftDie' : ' chosen') : (team && !giftOnly ? ' giftDie' : ' faded');
+      b.className = cls;
+      b.disabled = S.phase !== 'pick';
+      let inner = `<div class="dface">${spotSVG(f + 1)}</div>`;
+      if (S.revealed) {
+        const who = giftOnly ? partner : me;
+        inner += `<div class="dpart">${iconSVG(part)}<div class="dbadge">${fitBadge(who, part)}</div></div>`;
+        if (team) inner += `<div class="dgift">${HEART}${giftOnly ? '' : fitBadge(partner, part)}</div>`;
+        b.setAttribute('aria-label', `${i ? 'Pink' : 'Gold'} pointer: ${LABEL[part]}`);
+      } else {
+        inner += `<div class="dpart empty"></div>`;
+        b.setAttribute('aria-label', `${i ? 'Pink' : 'Gold'} pointer`);
+      }
+      b.innerHTML = inner;
+      b.onclick = () => pickDie(i);
+      box.appendChild(b);
+    });
+  }
+  function highlightTiles(faces) {
+    [...$('#chart').children].forEach((t, f) => {
+      const star = S && S.chart[f] === STAR;
+      t.classList.toggle('hl0', faces[0] === f || (star && faces.includes(f)));
+      t.classList.toggle('hl1', faces[1] === f && faces[0] !== f && !star);
+    });
+  }
+
+  // Tap the wheel: it gets a random push and slows to a stop on its own.
+  async function spin() {
+    if (!S || S.over || S.phase !== 'roll') return;
+    const g = S;
+    g.phase = 'spinning'; g.revealed = false; g.chosen = null; g.special = null; g.giftPick = false;
+    g.rolls++;
+    highlightTiles([]);
+    renderWheel(); renderDice(); updateControls();
+    sfx.whoosh();
+    // Pick where it stops (inside a wedge, never on a line), then slow down
+    // to it at a steady rate, like a real spinner.
+    const T = 1800 + Math.random() * 700;                   // ms (about 2 seconds)
+    const from = g.angle;
+    const roughEnd = from + (0.7 + Math.random() * 0.4) * T / 2;
+    const end = Math.round(roughEnd / STEP) * STEP + (Math.random() * 0.6 - 0.3) * STEP;
+    const D = end - from, v0 = 2 * D / T;
+    let lastWedge = Math.floor((from + STEP / 2) / STEP);
+    await new Promise(res => {
+      let t0 = null;
+      const step = t => {
+        if (S !== g) return;
+        if (t0 == null) t0 = t;
+        const e = Math.min(t - t0, T);
+        g.angle = from + v0 * e - (v0 / T) * e * e / 2;
+        setWheel(g.angle);
+        const w = Math.floor((g.angle + STEP / 2) / STEP);
+        if (w !== lastWedge) { lastWedge = w; sfx.tick(); }
+        if (e < T) requestAnimationFrame(step); else res();
+      };
+      requestAnimationFrame(step);
+    });
+    g.phase = 'busy'; updateControls();
+    const top = faceAt(g.angle);
+    await wait(250);
+
+    if (g.swapsDone < 2 && g.rolls >= g.swapAt && swapTypes().length) {
+      g.swapsDone++;
+      g.swapAt = g.rolls + 4 + rand(3);
+      g.special = 'swap';
+      sfx.swap(); flash(spotInner('swap'));
+      renderDice();
+      await wait(600);
+      const p = await chooseType(swapTypes(), `<svg viewBox="0 0 100 100">${spotInner('swap')}</svg>`, `var(--p${g.cur})`, true,
+        `Swap! Pick a part to trade with ${nm(other(g.cur))}, or tap X to skip.`);
+      if (p != null) {
+        const [a, b] = [g.players[0].parts[p], g.players[1].parts[p]];
+        g.players[0].parts[p] = b; g.players[1].parts[p] = a;
+        sfx.swap();
+        renderPanel(0, p); renderPanel(1, p);
+        await wait(550);
+      }
+      return endTurn();
+    }
+
+    // Normal stop: the two pointed-at parts become the choices.
+    g.shown = [top, (top + WEDGES / 2) % WEDGES];
+    g.revealed = true; g.phase = 'pick';
+    highlightTiles(g.shown);
+    // Sound tells the result: a happy chime if something fits, a sad trombone if nothing does.
+    const me = g.cur, partner = other(me), team = g.mode === 'team';
+    const giftOnly = team && complete(me);
+    const parts = g.shown.map(f => g.chart[f]);
+    const fitsFor = pi => parts.some(p => canAdd(pi, p));
+    const who = giftOnly ? partner : me;
+    if (fitsFor(who)) { sfx.yay(); renderWheel(); renderDice(); updateControls(); return; }
+
+    sfx.sad();
+    g.phase = 'busy';
+    renderWheel(); renderDice(); updateControls();
+    setCoach(giftOnly ? `Neither one fits ${nm(partner)}.` : 'Neither one fits.');
+    await wait(700);
+    if (giftOnly) {
+      await showResult(neitherCard(parts, `Neither one fits ${nm(partner)}. They get a spare part!`), `var(--p${partner})`);
+      giveToken(partner);
+    } else if (team && fitsFor(partner)) {
+      // Nothing for you, but your teammate can use one: you get a cog, then pick their gift.
+      await showResult(neitherCard(parts, 'Neither one fits you. You get a spare part!'), `var(--p${me})`);
+      giveToken(me);
+      await wait(400);
+      g.giftPick = true; g.phase = 'pick';
+      renderDice(); updateControls();
+      return;
+    } else {
+      await showResult(neitherCard(parts, team ? 'Neither one fits. You both get a spare part!' : 'Neither one fits. You get a spare part!'), `var(--p${me})`);
+      giveToken(me);
+      if (team) giveToken(partner);
+    }
+    await wait(500);
+    endTurn();
+  }
+
+  // "Neither one fits" card: both parts crossed out, then a cog.
+  function neitherCard(parts, text) {
+    return `<div class="rrow">${parts.map(p => `<div class="rpart">${iconSVG(p)}<div class="rbadge">${CROSS}</div></div>`).join('')}</div>
+      <div class="rcap">${text.replace('. ', '.<br>')}</div><div class="rrow small"><span class="rplus">+</span>${gearMini}</div>`;
+  }
+
+  // Use die i. In Team mode the other die is a gift for the teammate.
+  async function pickDie(i) {
+    if (!S || S.phase !== 'pick') return;
+    const giving = S.mode === 'team' && (complete(S.cur) || S.giftPick);
+    const who = giving ? other(S.cur) : S.cur;
+    const fits = f => canAdd(who, S.chart[f]);
+    if (S.shown.some(fits) && !fits(S.shown[i])) return;   // not an option while the other one fits
+    S.phase = 'busy'; S.chosen = i;
+    renderDice(); updateControls();
+    const me = S.cur, partner = other(me);
+    const mine = S.chart[S.shown[i]], gift = S.chart[S.shown[1 - i]];
+    if (S.giftPick || (S.mode === 'team' && complete(me))) {
+      S.giftPick = false;
+      if (await usePart(partner, mine, true, S.shown[i])) return;
+    } else {
+      if (await usePart(me, mine, false, S.shown[i])) return;
+      if (S.mode === 'team') {
+        await wait(250);
+        if (await usePart(partner, gift, true, S.shown[1 - i])) return;
+      }
+    }
+    endTurn();
+  }
+
+  // Put `part` on critter `target`, or explain why not and give a spare part.
+  // Returns true if the game ended.
+  async function usePart(target, part, gift, face) {
+    const color = `var(--p${target})`;
+    const top = `<div class="rrow">${spotSVG(face + 1)}${ARROW}<div class="rpart">${iconSVG(part)}<div class="rbadge">%BADGE%</div></div>${gift ? HEART : ''}</div>`;
+    if (canAdd(target, part)) {
+      if (gift) await showResult(top.replace('%BADGE%', CHECK) + `<div class="rcap">A gift for ${nm(target)}!</div>`, color);
+      if (part === STAR) {
+        part = await chooseType(addable(target), iconSVG(STAR), color, false,
+          gift ? `Star! Pick any part for ${nm(target)}.` : 'Star! Pick any part you need.');
+      }
+      if (await addPart(target, part, gift)) return true;
+      await wait(400);
+      return false;
+    }
+    const full = S.players[target].tokens >= MAX_TOKENS;
+    const text = gift
+      ? `That doesn't fit ${nm(target)} yet.${full ? '' : ' They get a spare part!'}`
+      : `That one doesn't fit yet.${full ? '' : ' You get a spare part!'}`;
+    const cog = full ? `<div class="rcap">Cogs are full. Use them!</div>` : `<div class="rrow small"><span class="rplus">+</span>${gearMini}</div>`;
+    await showResult(top.replace('%BADGE%', CROSS) + `<div class="rcap">${text}</div>` + cog, color);
+    giveToken(target);
+    await wait(500);
+    return false;
+  }
+
+  // 3 spare parts -> any part. Chosen by the player before rolling; they still roll after.
+  async function useCogs() {
+    if (!S || S.phase !== 'roll') return;
+    const me = S.cur, target = targetFor(me);
+    const types = addable(target);
+    if (S.players[me].tokens < MAX_TOKENS || !types.length) return;
+    S.phase = 'busy'; updateControls();
+    const p = await chooseType(types, `${gearMini}${gearMini}${gearMini}`, `var(--p${target})`, true,
+      'Trade 3 cogs for any part. Which part do you need?');
+    if (p == null) { S.phase = 'roll'; updateControls(); return; }
+    S.players[me].tokens -= MAX_TOKENS;
+    renderPanel(me);
+    if (await addPart(target, p, target !== me)) return;
+    S.phase = 'roll';
+    renderPanel(0); renderPanel(1);
+    updateControls();
+  }
+
+  function endTurn() {
+    if (S.over) return;
+    highlightTiles([]);
+    if (S.mode === 'team') {
+      S.owl--;
+      renderOwl(true);
+      if (S.owl <= 0) { sfx.owl(); return endGame('sleep'); }
+    }
+    // Wait here until someone taps the next-player button.
+    S.phase = 'done'; S.revealed = false; S.chosen = null; S.special = null;
+    renderWheel(); renderDice();
+    renderPanel(0); renderPanel(1);
+    updateControls();
+  }
+
+  function nextTurn() {
+    if (!S || S.phase !== 'done') return;
+    S.cur = other(S.cur);
+    S.phase = 'roll';
+    sfx.turn();
+    renderPanel(0); renderPanel(1);
+    renderTurn();
+    offerCogs();
+  }
+
+  const canUseCogs = () => S && S.phase === 'roll' && S.players[S.cur].tokens >= MAX_TOKENS && addable(targetFor(S.cur)).length > 0;
+
+  // With 3 cogs at the start of a turn, ask straight away so they don't go unused.
+  async function offerCogs() {
+    if (!canUseCogs()) return;
+    const g = S, me = g.cur;
+    sfx.token();
+    const yes = await new Promise(res => {
+      const ov = $('#result'), card = ov.querySelector('.card');
+      card.style.borderColor = `var(--p${me})`;
+      card.innerHTML = `<div class="rrow small">${gearMini}${gearMini}${gearMini}${ARROW}${questionIcon}</div>
+        <div class="rcap">${nm(me)}, you have 3 spare parts!<br>Use them to pick any part?</div>
+        <div class="rrow"><button type="button" class="okBtn" data-yes="1">${CHECK}Pick a part</button>
+        <button type="button" class="okBtn later">Not now</button></div>`;
+      ov.onclick = null;
+      card.querySelectorAll('button').forEach(b => b.onclick = e => {
+        e.stopPropagation();
+        ov.classList.remove('show');
+        res(!!b.dataset.yes);
+      });
+      ov.classList.add('show');
+    });
+    if (S !== g) return;
+    if (yes) useCogs();
+  }
+
+  // Returns true if the game ended.
+  function checkEnd() {
+    if (S.mode === 'race') {
+      for (const pi of [0, 1]) if (complete(pi)) { endGame('race', pi); return true; }
+    } else if (complete(0) && complete(1)) { endGame('team'); return true; }
+    return false;
+  }
+
+  const trophySVG = `<svg viewBox="0 0 100 100" class="big">
+      <path d="M28 14 H72 V40 C72 56 62 64 50 64 C38 64 28 56 28 40 Z" fill="#FFE000" ${O}/>
+      <path d="M28 22 H14 C14 40 22 46 30 46 M72 22 H86 C86 40 78 46 70 46" fill="none" ${O}/>
+      <rect x="44" y="64" width="12" height="14" fill="#FFE000" ${O}/><rect x="30" y="78" width="40" height="12" rx="3" fill="#FFE000" ${O}/>
+      <path d="M50 24 l4 8 9 1 -7 6 2 9 -8 -5 -8 5 2 -9 -7 -6 9 -1 Z" fill="#fff"/></svg>`;
+  const starSVG = (c) => `<path d="M50 6 L62 36 L94 38 L69 58 L77 90 L50 72 L23 90 L31 58 L6 38 L38 36 Z" fill="${c}" ${O}/>`;
+  const crownSVG = `<svg viewBox="0 0 120 100" class="crown"><path d="M12 82 L6 24 L36 50 L60 10 L84 50 L114 24 L108 82 Z" fill="#FFE000" ${O}/>
+      <circle cx="60" cy="62" r="9" fill="#FF4FA3" ${O}/><circle cx="32" cy="66" r="7" fill="#1F8CFF" ${O}/><circle cx="88" cy="66" r="7" fill="#00E07A" ${O}/></svg>`;
+
+  function endGame(kind, winner) {
+    S.over = true; S.phase = 'over';
+    $('#picker').classList.remove('show'); $('#chooser').classList.remove('show'); $('#result').classList.remove('show');
+    document.body.classList.add('over');
+    panels.forEach(p => { p.classList.remove('active', 'idle'); p.classList.add('dance'); });
+    renderPanel(0); renderPanel(1);
+    let big;
+    if (kind === 'race') {
+      big = trophySVG;
+      panels[winner].insertAdjacentHTML('beforeend', crownSVG);
+      $('#turnBadge').textContent = winner + 1;
+      $('#turnBadge').style.background = `var(--p${winner})`;
+      $('#turnBadge').setAttribute('aria-label', `${nm(winner)} wins`);
+    } else if (kind === 'team') {
+      big = `<svg viewBox="0 0 100 100" class="big">${starSVG('#FFE000')}<path d="M50 74 C30 60 30 44 41 43 C46 43 49 46 50 49 C51 46 54 43 59 43 C70 44 70 60 50 74Z" fill="#FF3B30" stroke="${INK}" stroke-width="4"/></svg>`;
+      panels.forEach(p => p.insertAdjacentHTML('beforeend', crownSVG));
+      $('#turnBadge').innerHTML = `<svg viewBox="0 0 100 100" style="width:70%;height:70%">${starSVG('#fff')}</svg>`;
+      $('#turnBadge').style.background = '#7B4DFF';
+      $('#turnBadge').setAttribute('aria-label', 'Team wins');
+    } else {
+      big = `<svg viewBox="0 0 120 120" class="big">${owlSVG(0)}</svg>`;
+      $('#turnBadge').innerHTML = `<svg viewBox="0 0 100 100" style="width:70%;height:70%"><path d="M66 14 A38 38 0 1 0 86 70 A30 30 0 0 1 66 14Z" fill="#FFE000" ${O}/></svg>`;
+      $('#turnBadge').style.background = '#4B2FD6';
+      $('#turnBadge').setAttribute('aria-label', 'The owl fell asleep');
+    }
+    $('#endBig').innerHTML = big;
+    const endLine = kind === 'race' ? `${nm(winner)} finished first! Tap Play again for a new game.`
+      : kind === 'team' ? 'You did it together! Both critters are done. Tap Play again for a new game.'
+      : 'The owl fell asleep. Tap Play again to try again!';
+    $('#coach').innerHTML = `<span class="chip" style="background:${kind === 'race' ? `var(--p${winner})` : '#A98BFF'}"></span><span>${endLine}</span>`;
+    $('#againBtn').innerHTML = `<svg viewBox="0 0 100 100"><path d="M78 50 A28 28 0 1 1 64 26" fill="none" ${O} stroke-width="11"/><path d="M58 10 L74 28 L52 36 Z" fill="${INK}" ${O}/></svg>Play again`;
+    if (kind !== 'sleep') { sfx.win(); confetti(); }
+  }
+
+  function confetti() {
+    const box = $('#confetti');
+    box.innerHTML = '';
+    const colors = ['#FF8A00', '#1F8CFF', '#FFE000', '#00E07A', '#FF4FA3', '#7B4DFF'];
+    for (let i = 0; i < 70; i++) {
+      const c = document.createElement('div');
+      c.className = 'cf';
+      c.style.left = Math.random() * 100 + 'vw';
+      c.style.background = colors[i % colors.length];
+      c.style.animationDuration = (1.6 + Math.random() * 1.4) + 's';
+      c.style.animationDelay = Math.random() * 0.6 + 's';
+      box.appendChild(c);
+    }
+    setTimeout(() => { box.innerHTML = ''; }, 4000);
+  }
+
+  // ================================================================
+  // Setup & wiring
+  // ================================================================
+  function start(mode) {
+    S = newState(mode);
+    document.body.classList.remove('over');
+    panels.forEach(p => { p.classList.remove('dance'); p.querySelectorAll('.crown').forEach(c => c.remove()); });
+    $('#confetti').innerHTML = '';
+    $('#picker').classList.remove('show'); $('#chooser').classList.remove('show'); $('#result').classList.remove('show');
+    $('#modeScreen').classList.remove('show');
+    renderAll();
+  }
+
+  // After Race/Team: Player 1 then Player 2 pick a name badge (or "No name").
+  function pickNames(mode) {
+    chosenBadges = [null, null];
+    let who = 0;
+    const scr = $('#badgeScreen');
+    const next = () => {
+      if (who === 0) { who = 1; draw(); return; }
+      scr.classList.remove('show');
+      start(mode);
+    };
+    const draw = () => {
+      const num = $('#badgeNum');
+      num.textContent = who + 1;
+      num.style.background = `var(--p${who})`;
+      $('#badgeTitle').textContent = `Player ${who + 1}, pick your name!`;
+      $('#ownNameInput').value = '';
+      const grid = $('#badgeGrid');
+      grid.innerHTML = '';
+      BADGES.forEach((b, i) => {
+        const btn = document.createElement('button');
+        const taken = chosenBadges.includes(b);
+        btn.className = 'nameBadge' + (taken ? ' taken' : '');
+        btn.style.setProperty('--c', b.color);
+        btn.disabled = taken;
+        btn.innerHTML = `${b.icon}<span>${b.name}</span>`;
+        btn.onclick = () => { chosenBadges[who] = b; sfx.pop(); next(); };
+        grid.appendChild(btn);
+      });
+    };
+    $('#badgeSkip').onclick = () => { chosenBadges[who] = null; next(); };
+    // Or type your own name: it gets a smiley badge in the player's colour.
+    $('#ownName').onsubmit = e => {
+      e.preventDefault();
+      const input = $('#ownNameInput');
+      const name = cleanName(input.value);
+      if (!name) { input.classList.remove('nope'); void input.offsetWidth; input.classList.add('nope'); input.focus(); return; }
+      input.blur();
+      chosenBadges[who] = { name, color: `var(--p${who})`, icon: SMILEY };
+      sfx.pop();
+      next();
+    };
+    $('#modeScreen').classList.remove('show');
+    scr.classList.add('show');
+    draw();
+  }
+
+  function showModeScreen() {
+    // Mid-game, the first tap arms the button (it turns red) and a second tap
+    // within 3 seconds leaves. Browser confirm() dialogs are often blocked.
+    const hb = $('#homeBtn');
+    if (S && !S.over && S.rolls > 0 && !hb.classList.contains('armed')) {
+      hb.classList.add('armed');
+      clearTimeout(showModeScreen.t);
+      showModeScreen.t = setTimeout(() => hb.classList.remove('armed'), 3000);
+      return;
+    }
+    hb.classList.remove('armed');
+    S = null;
+    $('#picker').classList.remove('show'); $('#chooser').classList.remove('show'); $('#result').classList.remove('show');
+    $('#modeScreen').classList.add('show');
+  }
+
+  function renderSoundBtn() {
+    $('#soundBtn').innerHTML = `<svg viewBox="0 0 100 100"><path d="M14 38 H32 L56 18 V82 L32 62 H14 Z" fill="#FFE000" ${O}/>` +
+      (soundOn ? `<path d="M68 34 Q80 50 68 66 M78 24 Q98 50 78 76" fill="none" ${O}/>`
+               : `<path d="M68 36 L92 64 M92 36 L68 64" fill="none" stroke="#FF3B30" stroke-width="9" stroke-linecap="round"/>`) + `</svg>`;
+    $('#soundBtn').setAttribute('aria-pressed', String(soundOn));
+  }
+
+  // Mode screen art
+  $('#titleCritters').innerHTML =
+    critterSVG({ 0: 0, 1: 0, 2: 0, 3: 1, 4: 1, 5: 1, 6: 0 }) +
+    critterSVG({ 0: 2, 1: 2, 2: 2, 3: 2, 4: 0, 5: 0, 6: 2 }) +
+    critterSVG({ 0: 1, 1: 1, 2: 1, 3: 0, 4: 2, 5: 2, 6: 1 });
+  $('#raceBtn').innerHTML = `<svg viewBox="0 0 160 100">
+      <path d="M118 10 V92" ${O} stroke-width="8"/>
+      <path d="M118 12 H154 V44 H118 Z" fill="#fff" ${O}/>
+      <path d="M118 12 H130 V22 H118 Z M142 12 H154 V22 H142 Z M130 22 H142 V33 H130 Z M118 33 H130 V44 H118 Z M142 33 H154 V44 H142 Z" fill="${INK}"/>
+      <circle cx="30" cy="54" r="20" fill="var(--p0)" ${O}/><circle cx="72" cy="70" r="20" fill="var(--p1)" ${O}/>
+      <path d="M2 54 H10 M4 44 H12 M4 64 H12 M44 70 H52 M46 60 H54 M46 80 H54" stroke="#fff" stroke-width="5" stroke-linecap="round"/></svg>Race`;
+  $('#teamBtn').innerHTML = `<svg viewBox="0 0 160 100">
+      <circle cx="40" cy="58" r="22" fill="var(--p0)" ${O}/><circle cx="84" cy="58" r="22" fill="var(--p1)" ${O}/>
+      <path d="M62 34 C46 22 48 6 58 6 C62 6 62 10 62 12 C62 10 62 6 66 6 C76 6 78 22 62 34Z" fill="#FF3B30" stroke="${INK}" stroke-width="4"/>
+      <g transform="translate(108 30) scale(.45)">${owlSVG(OWL_ROUNDS)}</g></svg>Team`;
+
+  $('#raceBtn').onclick = () => pickNames('race');
+  $('#teamBtn').onclick = () => pickNames('team');
+
+  $('#wheel').onclick = spin;
+  $('#wheel').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); spin(); } };
+  $('#cogBtn').innerHTML = `${gearMini}${gearMini}${gearMini}${ARROW}${questionIcon}<span>Pick any part</span>`;
+  $('#cogBtn').onclick = useCogs;
+  $('#nextBtn').onclick = nextTurn;
+  $('#againBtn').onclick = () => start(S ? S.mode : 'race');
+  $('#homeBtn').innerHTML = `<svg viewBox="0 0 100 100"><path d="M14 50 L50 16 L86 50 M24 42 V86 H76 V42" fill="#fff" ${O} stroke-width="8"/><rect x="42" y="60" width="16" height="26" fill="#FF8A00" ${O}/></svg>`;
+  $('#homeBtn').onclick = showModeScreen;
+  $('#soundBtn').onclick = () => { soundOn = !soundOn; renderSoundBtn(); };
+  renderSoundBtn();
+
+  // How-to-play card (for the grown-up running the game)
+  const flagIcon = `<svg viewBox="0 0 100 100"><path d="M24 10 V92" ${O} stroke-width="8"/><path d="M24 12 H84 V56 H24 Z" fill="#fff" ${O}/><path d="M24 12 H44 V27 H24 Z M64 12 H84 V27 H64 Z M44 27 H64 V41 H44 Z M24 41 H44 V56 H24 Z M64 41 H84 V56 H64 Z" fill="${INK}"/></svg>`;
+  const owlIcon = `<svg viewBox="0 0 120 120">${owlSVG(OWL_ROUNDS)}</svg>`;
+  const hArrow = ARROW.replace('class="rarrow"', 'class="harrow"');
+  const helpRows = [
+    [SPIN_ICON, '<b>Tap the spinner</b> to spin it. When it stops, the gold and pink pointers each point at a part. <b>Tap the part you want.</b>'],
+    [iconSVG(BODY) + hArrow + iconSVG(HEAD) + hArrow + iconSVG(EYES), 'Start with a <b>body</b>. Legs and arms need a body. Eyes, nose and hat need a <b>head</b>.'],
+    [iconSVG(STAR), 'Land on the <b>star</b> and you can pick any part you need!'],
+    [CHECK + CROSS + LOCK, 'Green check: it fits. Red X: you already have it. Lock: you need another part first.'],
+    [CROSS + hArrow + gearMini, 'A part that doesn\'t fit can\'t be picked, so tap the one that does. If neither fits, you get a <b>spare part</b> cog.'],
+    [gearMini + gearMini + gearMini + hArrow + questionIcon, 'With <b>3 cogs</b>, your turn starts by asking if you want to use them to pick any part (the cog button under the spinner does it too). You still spin after.'],
+    [HEART, '<b>Team:</b> the part you don\'t take is a <b>gift</b> for your teammate. Once your critter is done, you pick which part to give.'],
+    [spotSVG('swap'), '<b>Swap!</b> (twice a game) trades one part with the other critter, or tap the red X to skip.'],
+    [ARROW, 'When your turn is over, tap the big <b>Go</b> button for the next player. The game waits for you.'],
+    [BADGES[0].icon + BADGES[6].icon, 'After picking Race or Team, each player can pick a silly <b>name badge</b>, type their own name, or tap No name.'],
+    [flagIcon, '<b>Race:</b> first finished critter wins.'],
+    [owlIcon, '<b>Team:</b> finish both critters before the owl falls asleep. One moon goes out every turn.'],
+  ];
+  $('#helpBody').innerHTML = helpRows.map(([icons, text]) =>
+    `<div class="hrow"><div class="hicons">${icons}</div><div class="htext">${text}</div></div>`).join('');
+  $('#helpBody').style.cssText = 'display:grid;gap:1.1vh';
+  $('#helpClose').innerHTML = `<svg viewBox="0 0 100 100"><path d="M20 20 L80 80 M80 20 L20 80" stroke="#fff" stroke-width="18" stroke-linecap="round"/></svg>`;
+  const qBtn = `<svg viewBox="0 0 100 100"><path d="M34 36 Q34 18 50 18 Q68 18 68 35 Q68 48 52 54 L52 64" fill="none" ${O} stroke-width="11"/><circle cx="52" cy="82" r="7" fill="${INK}"/></svg>`;
+  $('#helpBtn').innerHTML = qBtn;
+  $('#modeHelp').innerHTML = qBtn;
+  $('#helpBtn').onclick = $('#modeHelp').onclick = () => $('#help').classList.add('show');
+  $('#helpClose').onclick = () => $('#help').classList.remove('show');
+
+  // Space / Enter rolls (handy for the grown-up running the screen share)
+  document.addEventListener('keydown', e => {
+    if (!S || document.querySelector('.overlay.show')) return;
+    if ((e.key === ' ' || e.key === 'Enter') && S.phase === 'roll' && document.activeElement?.tagName !== 'BUTTON' && document.activeElement?.id !== 'wheel') {
+      e.preventDefault(); spin();
+    } else if ((e.key === ' ' || e.key === 'Enter') && S.phase === 'done' && document.activeElement?.tagName !== 'BUTTON') {
+      e.preventDefault(); nextTurn();
+    } else if ((e.key === '1' || e.key === '2') && S.phase === 'pick') {
+      pickDie(Number(e.key) - 1);
+    }
+  });
+})();
+</script>
+</body>
+</html>

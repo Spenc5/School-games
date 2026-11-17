@@ -1,0 +1,1992 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Life Paths</title>
+<style>
+:root {
+  --bg: #121633;
+  --panel: #20265c;
+  --panel-2: #2b3277;
+  --line: #4a52a8;
+  --ink: #ffffff;
+  --ink-dim: #c8cbf0;
+  --cream: #fffbea;
+  --dark: #111111;
+  --gold: #ffd23f;
+  --good: #2ee66b;
+  --bad: #ff5252;
+  --turn: #29b6f6;
+
+  --t-social: #4fc3f7;
+  --t-share: #ce93d8;
+  --t-payday: #69d36e;
+  --t-oops: #ff8a65;
+  --t-event: #ffd54f;
+  --t-help: #f48fb1;
+  --t-cope: #80cbc4;
+  --t-stop: #ffffff;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: "Trebuchet MS", "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 18px;
+}
+
+button { font: inherit; cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+
+.app {
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: 10px 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ---------- Top bar ---------- */
+.topbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+.title {
+  margin: 0;
+  font-size: clamp(1.5rem, 2.2vw, 2rem);
+  color: var(--gold);
+  text-shadow: 3px 3px 0 #000;
+  white-space: nowrap;
+}
+.top-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.btn {
+  border: 3px solid #000;
+  border-radius: 14px;
+  padding: 6px 14px;
+  font-weight: 800;
+  font-size: 1rem;
+  background: #fff;
+  color: #111;
+  box-shadow: 0 4px 0 #000;
+  transition: transform .08s;
+}
+.btn:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 #000; }
+.btn:disabled { opacity: .35; }
+.btn-big { font-size: 1.3rem; padding: 12px 22px; }
+.btn-go { background: var(--good); }
+.btn-gold { background: var(--gold); }
+.btn-no { background: var(--bad); color: #fff; }
+.btn[aria-pressed="true"] { background: var(--good); }
+
+/* ---------- Banner ---------- */
+.banner {
+  background: var(--turn);
+  color: #000;
+  border: 4px solid #000;
+  border-radius: 18px;
+  padding: 6px 18px;
+  font-size: 1.7rem;
+  font-weight: 900;
+  text-align: center;
+  box-shadow: 0 5px 0 #000;
+}
+.banner small { font-size: 1.1rem; font-weight: 700; margin-left: 12px; }
+
+/* ---------- Main layout ---------- */
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; align-items: start; }
+
+/* ---------- Board ---------- */
+.board-wrap {
+  background: var(--panel);
+  border: 3px solid var(--line);
+  border-radius: 18px;
+  padding: 10px;
+  overflow-x: auto;
+}
+.board { container-type: inline-size; min-width: 720px; display: flex; flex-direction: column; gap: 6px; }
+.brow { display: grid; grid-template-columns: 4.2cqw repeat(11, minmax(0, 1fr)); gap: 0.5cqw; }
+.rlabel {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  text-align: center;
+  font-weight: 900;
+  font-size: 1.3cqw;
+  color: var(--gold);
+  background: var(--panel-2);
+  border-radius: 10px;
+  border: 2px solid var(--line);
+  display: grid; place-items: center;
+  letter-spacing: 1px;
+}
+.cell {
+  position: relative;
+  aspect-ratio: 1 / 1.05;
+  background: var(--tc);
+  color: #000;
+  border: 3px solid #000;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding-top: .5cqw;
+  overflow: hidden;
+}
+.cell .num { position: absolute; top: 2px; left: 5px; font-size: .9cqw; font-weight: 900; opacity: .65; }
+.cell .dir { position: absolute; top: 2px; right: 5px; font-size: 1cqw; font-weight: 900; opacity: .65; }
+.cell .ic { font-size: 2.7cqw; line-height: 1.1; }
+.cell .lb { font-size: 1.02cqw; font-weight: 900; text-align: center; line-height: 1.05; padding: 0 2px; }
+.cell.stop { border: 5px solid #d50000; box-shadow: inset 0 0 0 3px #fff; }
+.cell.stop .lb::before { content: "STOP · "; color: #d50000; }
+.cell.clickable { cursor: pointer; }
+.cell.next {
+  outline: 6px solid var(--gold);
+  outline-offset: 2px;
+  z-index: 1;
+  animation: glow 1s ease-in-out infinite;
+}
+@keyframes glow { 50% { outline-color: #fff; transform: scale(1.06); } }
+.cell.here {
+  outline: 6px solid var(--pc);
+  outline-offset: 2px;
+  z-index: 1;
+}
+.here-badge, .step-badge {
+  position: absolute; top: 2px; left: 0; right: 0;
+  margin: 0 auto;
+  width: fit-content;
+  border: 2px solid #000;
+  border-radius: 999px;
+  padding: 0 .5cqw;
+  font-size: 1cqw;
+  font-weight: 900;
+  white-space: nowrap;
+  z-index: 2;
+}
+.here-badge { background: var(--pc); color: #000; }
+.step-badge { background: var(--gold); color: #000; animation: bob .8s ease-in-out infinite; }
+.cell.here .num, .cell.here .dir, .cell.next .num, .cell.next .dir { visibility: hidden; }
+.moves { color: var(--gold); font-size: 1.5rem; }
+.steps { font-size: 1.35rem; font-weight: 800; line-height: 1.45; margin: 6px 0 10px; padding-left: 28px; }
+.trigger { background: #fff; border: 3px solid #000; border-radius: 14px; padding: 8px 14px; font-size: 1.2rem; font-weight: 800; margin-bottom: 10px; }
+.showit { margin-top: 12px; border: 4px dashed #00897b; border-radius: 16px; padding: 10px 14px; background: #e0f2f1; }
+.showit h3 { margin: 0 0 4px; font-size: 1.25rem; }
+.showit p { margin: 4px 0; font-size: 1.2rem; font-weight: 800; }
+.dorow { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 14px; align-items: center; }
+.guide { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 6px 0; }
+@media (max-width: 700px) { .dorow { grid-template-columns: 1fr; } }
+.breath {
+  width: 150px; height: 150px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #b2dfdb, #26a69a);
+  border: 5px solid #000;
+  display: grid; place-items: center;
+  font-size: 3rem; font-weight: 900; color: #000;
+  transform: scale(.55);
+  transition-property: transform;
+  transition-timing-function: ease-in-out;
+}
+.breath-label { font-size: 1.2rem; font-weight: 900; text-align: center; min-height: 2.6em; }
+.cell.start, .cell.finish { background: repeating-linear-gradient(45deg, #fff 0 8px, #ffe082 8px 16px); }
+.tokens {
+  position: absolute; left: 0; right: 0; bottom: 3px;
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 1px;
+}
+.token {
+  width: 3cqw; height: 3cqw;
+  border-radius: 50%;
+  background: #fff;
+  border: .35cqw solid var(--pc);
+  display: grid; place-items: center;
+  font-size: 1.8cqw;
+  box-shadow: 0 2px 0 #000;
+}
+.token.now { animation: bob .9s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(-5px); } }
+
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-weight: 800; font-size: .95rem; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 18px; height: 18px; border-radius: 4px; border: 2px solid #000; background: var(--tc); display: inline-block; }
+
+/* ---------- Sidebar ---------- */
+.side { display: flex; flex-direction: column; gap: 12px; }
+.panel {
+  background: var(--panel);
+  border: 3px solid var(--line);
+  border-radius: 18px;
+  padding: 12px;
+}
+.panel h2 { margin: 0 0 8px; font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px; color: var(--gold); }
+.spinbox { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.wheel { position: relative; width: 190px; height: 190px; border-radius: 50%; }
+.wheel.ready { cursor: pointer; }
+.wheel.ready:hover { transform: scale(1.04); }
+.wheel.ready::after {
+  content: "👆 Tap me!";
+  position: absolute; left: 0; right: 0; bottom: -6px;
+  margin: 0 auto;
+  width: fit-content;
+  background: var(--gold); color: #000;
+  border: 3px solid #000; border-radius: 999px;
+  padding: 1px 10px;
+  font-weight: 900; font-size: 1rem;
+  white-space: nowrap;
+  animation: bob .9s ease-in-out infinite;
+  z-index: 3;
+}
+.wheel svg { width: 100%; height: 100%; display: block; }
+.pointer {
+  position: absolute; top: -6px; left: 50%;
+  transform: translateX(-50%);
+  width: 0; height: 0;
+  border-left: 16px solid transparent;
+  border-right: 16px solid transparent;
+  border-top: 30px solid #fff;
+  filter: drop-shadow(0 3px 0 #000);
+  z-index: 2;
+}
+#wheelRot { transform-origin: 110px 110px; }
+.spin-result { font-size: 1.3rem; font-weight: 900; min-height: 1.6em; text-align: center; }
+.spinbtn { width: 100%; font-size: 1.6rem; padding: 12px; background: var(--gold); }
+
+.pcard {
+  border: 4px solid var(--pc);
+  border-radius: 14px;
+  padding: 6px 10px;
+  background: var(--panel-2);
+  margin-bottom: 6px;
+}
+.pcard.now { box-shadow: 0 0 0 4px var(--gold); }
+.pcard.done { opacity: .75; }
+.phead { display: flex; align-items: center; gap: 8px; font-size: 1.25rem; font-weight: 900; }
+.phead .av { font-size: 1.6rem; }
+.phead .nm { color: var(--pc); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pstats { display: flex; gap: 10px; font-size: 1.25rem; font-weight: 900; color: #fff; }
+.pstats .neg { color: #ff8a80; }
+.pinfo { font-size: .9rem; font-weight: 700; color: var(--ink-dim); line-height: 1.3; margin-top: 2px; }
+
+/* ---------- Modals / cards ---------- */
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(6, 8, 28, .78);
+  display: grid;
+  padding: 16px;
+  z-index: 40;
+  overflow-y: auto;
+}
+.modal {
+  background: var(--cream);
+  color: var(--dark);
+  border: 5px solid #000;
+  border-radius: 22px;
+  box-shadow: 0 10px 0 #000;
+  width: min(860px, 100%);
+  margin: auto; /* centred when it fits, scrollable from the top when it doesn't */
+  overflow: hidden;
+  animation: zoom .25s ease-out;
+}
+.modal.wide { width: min(1200px, 100%); }
+@keyframes zoom { from { transform: scale(.7); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.mhead {
+  background: var(--tc, var(--gold));
+  border-bottom: 4px solid #000;
+  padding: 10px 18px;
+  display: flex; align-items: center; gap: 12px;
+}
+.mhead .ic { font-size: 2.6rem; line-height: 1; }
+.mhead h2 { margin: 0; font-size: 1.9rem; flex: 1; }
+.mhead .who { font-weight: 900; font-size: 1.1rem; background: #fff; border: 3px solid #000; border-radius: 999px; padding: 2px 12px; }
+.mbody { padding: 16px 22px 20px; }
+.scen { font-size: 1.6rem; font-weight: 800; line-height: 1.3; margin: 4px 0 14px; }
+.choices { display: flex; flex-direction: column; gap: 10px; }
+.choice {
+  text-align: left;
+  border: 4px solid #000;
+  border-radius: 14px;
+  background: #fff;
+  padding: 12px 16px;
+  font-size: 1.3rem;
+  font-weight: 800;
+  box-shadow: 0 4px 0 #000;
+  display: flex; gap: 12px; align-items: center;
+}
+.choice:hover { background: #fff3b0; }
+.choice .let {
+  flex: none;
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: #000; color: #fff;
+  display: grid; place-items: center;
+  font-weight: 900;
+}
+.picked { background: #fff3b0; border: 4px solid #000; border-radius: 14px; padding: 10px 14px; font-size: 1.3rem; font-weight: 800; }
+.fb { font-size: 1.25rem; font-weight: 700; margin: 10px 0; }
+.fx {
+  display: inline-block;
+  background: #000; color: #fff;
+  border-radius: 999px;
+  padding: 4px 14px;
+  font-weight: 900; font-size: 1.2rem;
+}
+.talk {
+  margin-top: 14px;
+  border: 4px dashed #7e57c2;
+  border-radius: 16px;
+  padding: 12px 14px;
+  background: #f3ecff;
+}
+.talk h3 { margin: 0 0 6px; font-size: 1.3rem; }
+.talk p { margin: 4px 0 8px; font-size: 1.3rem; font-weight: 800; }
+.talk .hint { font-size: 1rem; font-weight: 700; color: #4a3a7a; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.row.end { justify-content: space-between; }
+.pbtn { border-color: #000; background: #fff; }
+.pbtn.on { background: var(--good); }
+.starters { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+.starters span { background: #fff; border: 2px solid #7e57c2; border-radius: 999px; padding: 3px 10px; font-weight: 800; }
+.opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.opt {
+  border: 4px solid #000; border-radius: 16px; background: #fff;
+  padding: 12px; text-align: center; box-shadow: 0 4px 0 #000;
+  font-weight: 800;
+}
+.opt:hover:not(:disabled) { background: #fff3b0; }
+.opt.on { background: var(--good); }
+.opt .big { font-size: 2.6rem; display: block; }
+.opt .t { font-size: 1.25rem; font-weight: 900; display: block; }
+.opt .d { font-size: 1rem; display: block; margin-top: 4px; }
+.small-note { font-size: 1rem; font-weight: 700; color: #555; }
+
+/* Setup */
+.setup-row { display: flex; gap: 10px; align-items: center; margin: 8px 0; }
+.setup-row input {
+  flex: 1; min-width: 0;
+  font: inherit; font-size: 1.3rem; font-weight: 800;
+  padding: 8px 12px;
+  border: 4px solid var(--pc); border-radius: 12px;
+}
+.avbtn { font-size: 2rem; width: 62px; height: 58px; border: 4px solid var(--pc); border-radius: 12px; background: #fff; padding: 0; }
+.seg { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.seg .btn[aria-pressed="true"] { background: var(--gold); }
+.label { font-weight: 900; font-size: 1.15rem; margin: 14px 0 6px; }
+
+/* Party */
+.party { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+.pp { border: 4px solid var(--pc); border-radius: 16px; background: #fff; padding: 10px 12px; }
+.pp .rank { font-size: 1.1rem; font-weight: 900; }
+.pp .who { font-size: 1.5rem; font-weight: 900; }
+.pp .pts { font-size: 2rem; font-weight: 900; }
+.pp ul { padding-left: 18px; margin: 6px 0; font-size: .95rem; font-weight: 600; max-height: 170px; overflow-y: auto; }
+.pp .awards { display: flex; flex-wrap: wrap; gap: 4px; margin: 4px 0; }
+.pp .awards span { background: var(--gold); border: 2px solid #000; border-radius: 999px; padding: 1px 8px; font-weight: 900; font-size: .9rem; }
+.breakdown { font-weight: 800; font-size: 1rem; }
+.reflect { margin-top: 14px; background: #f3ecff; border: 4px dashed #7e57c2; border-radius: 16px; padding: 10px 14px; }
+.reflect ol { font-size: 1.2rem; font-weight: 800; margin: 6px 0; }
+.helplist { font-size: 1.1rem; font-weight: 600; line-height: 1.45; padding-left: 22px; }
+
+/* Toast */
+.toast {
+  position: fixed; left: 50%; top: 12px;
+  transform: translateX(-50%);
+  background: var(--gold); color: #000;
+  border: 4px solid #000; border-radius: 16px;
+  padding: 10px 22px; font-size: 1.3rem; font-weight: 900;
+  box-shadow: 0 6px 0 #000;
+  z-index: 60; max-width: calc(100vw - 32px); text-align: center;
+}
+
+@media (max-width: 1100px) {
+  .main { grid-template-columns: 1fr; }
+  .side { display: grid; grid-template-columns: 260px 1fr; }
+}
+@media (max-width: 700px) {
+  html, body { font-size: 16px; }
+  .side { grid-template-columns: 1fr; }
+  .banner { font-size: 1.35rem; }
+  .scen { font-size: 1.3rem; }
+  .choice { font-size: 1.1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar">
+    <h1 class="title">🛤️ Life Paths</h1>
+    <div class="top-actions" id="topActions"></div>
+  </header>
+  <div class="banner" id="banner" role="status" aria-live="polite"></div>
+  <div class="main">
+    <section class="board-wrap" aria-label="Game board">
+      <div class="board" id="board"></div>
+      <div class="legend" id="legend"></div>
+    </section>
+    <aside class="side">
+      <section class="panel spinbox" aria-label="Spinner">
+        <div class="wheel" id="wheelBtn" data-action="spin" role="button" tabindex="0" aria-label="Spin the spinner"><div class="pointer"></div><div id="wheel"></div></div>
+        <div class="spin-result" id="spinResult" aria-live="polite"></div>
+        <button class="btn spinbtn" id="spinBtn" data-action="spin">🎡 SPIN!</button>
+      </section>
+      <section class="panel" aria-label="Players">
+        <h2>Players</h2>
+        <div id="players"></div>
+      </section>
+    </aside>
+  </div>
+</div>
+<div id="layer"></div>
+<div id="toastLayer"></div>
+
+<script>
+'use strict';
+
+/* =========================================================
+   CONTENT
+   ========================================================= */
+
+const AVATARS = ['🦊', '🐼', '🐸', '🦄', '🐯', '🐙', '🦖', '🐧', '🤖', '👽', '🐨', '🦁'];
+const PCOLORS = ['#29b6f6', '#ff4fa0', '#2ee66b', '#ffa726'];
+
+const TYPES = {
+  start:  { icon: '🚩', label: 'Start', color: '#fff' },
+  finish: { icon: '🎉', label: 'Life Party', color: '#fff' },
+  social: { icon: '💬', label: 'What would you do?', color: 'var(--t-social)' },
+  share:  { icon: '🎤', label: 'Share Time', color: 'var(--t-share)' },
+  payday: { icon: '💰', label: 'Payday', color: 'var(--t-payday)' },
+  oops:   { icon: '⚡', label: 'Oops!', color: 'var(--t-oops)' },
+  event:  { icon: '🎁', label: 'Life Event', color: 'var(--t-event)' },
+  help:   { icon: '🤝', label: 'Help a Friend', color: 'var(--t-help)' },
+  cope:   { icon: '🧘', label: 'Show a Coping Skill', color: 'var(--t-cope)' },
+  path:   { icon: '🎓', label: 'Choose Your Path', color: 'var(--t-stop)', stop: true },
+  career: { icon: '💼', label: 'Career Day', color: 'var(--t-stop)', stop: true },
+  home:   { icon: '🏠', label: 'Find a Home', color: 'var(--t-stop)', stop: true },
+};
+
+// 44 spaces, laid out as 4 rows of 11 in a snake.
+const BOARD = [
+  'start', 'social', 'payday', 'share', 'social', 'event', 'help', 'path', 'cope', 'oops', 'share',
+  'social', 'payday', 'event', 'cope', 'help', 'oops', 'share', 'career', 'social', 'payday', 'event',
+  'social', 'share', 'oops', 'payday', 'cope', 'help', 'event', 'home', 'social', 'payday', 'share',
+  'social', 'oops', 'event', 'payday', 'cope', 'help', 'share', 'social', 'payday', 'event', 'finish',
+];
+const ROWS = [
+  { label: 'Childhood', stage: 'kid' },
+  { label: 'Teen Years', stage: 'teen' },
+  { label: 'Starting Out', stage: 'adult' },
+  { label: 'Grown-Up Life', stage: 'adult' },
+];
+const COLS = 11;
+const LAST = BOARD.length - 1;
+const stageAt = pos => ROWS[Math.min(ROWS.length - 1, Math.floor(pos / COLS))].stage;
+
+/* Social situations. h = hearts, c = coins. */
+const SOCIAL = [
+  // ---- kid ----
+  { stage: 'kid', title: 'New kid at lunch', text: 'A new student is sitting alone at lunch.',
+    choices: [
+      { t: 'Invite them to sit with you.', h: 2, fb: 'You just made someone\'s whole day better. That\'s how friendships start!' },
+      { t: 'Smile and wave, but stay with your friends.', h: 1, fb: 'A friendly wave is a good start. Maybe next time you could say hi.' },
+      { t: 'Ignore them. Someone else will talk to them.', h: -1, fb: 'Everyone waiting for "someone else" means nobody helps.' },
+    ],
+    talk: 'What\'s a good first thing to say to someone new?' },
+  { stage: 'kid', title: 'Losing a game', text: 'You\'re playing a board game with friends, and you lose.',
+    choices: [
+      { t: 'Say "Good game!" and ask for a rematch.', h: 2, fb: 'Being a good sport makes people want to play with you again.' },
+      { t: 'Say the game was unfair.', h: -1, fb: 'Blaming the game can make the fun stop for everyone.' },
+      { t: 'Quit and walk away.', h: -1, fb: 'It\'s okay to feel frustrated, but walking off can hurt feelings.' },
+    ],
+    talk: 'What helps YOU feel better after losing?' },
+  { stage: 'kid', title: 'Bumping into someone', text: 'You accidentally bump into someone and they drop their books.',
+    choices: [
+      { t: 'Say sorry and help pick them up.', h: 2, fb: 'Owning an accident and helping fix it shows you care.' },
+      { t: 'Say sorry and keep walking.', h: 0, fb: 'Saying sorry is good. Helping too would be even better.' },
+      { t: 'Laugh at the mess.', h: -2, fb: 'Laughing can make the other person feel embarrassed.' },
+    ],
+    talk: 'Why does saying sorry for an accident still matter?' },
+  { stage: 'kid', title: 'Joining a game', text: 'Kids are already playing a game at recess, and you want to join.',
+    choices: [
+      { t: 'Wait for a break and ask, "Can I play next round?"', h: 2, fb: 'Great timing and a clear question. Most people will say yes!' },
+      { t: 'Run in and start playing.', h: -1, fb: 'Jumping in without asking can mess up the game and annoy people.' },
+      { t: 'Walk away. They probably don\'t want you.', h: 0, fb: 'You never know until you ask. Most kids like more players!' },
+    ],
+    talk: 'What could you do if they say "not right now"?' },
+  { stage: 'kid', title: 'A compliment', text: 'Someone says, "Wow, I really like your drawing!"',
+    choices: [
+      { t: '"Thanks! I like your drawings too."', h: 2, fb: 'Accepting a compliment AND giving one back keeps the kindness going.' },
+      { t: '"Thank you!"', h: 1, fb: 'Simple and kind. Nice!' },
+      { t: '"Ugh, no, it\'s terrible."', h: 0, fb: 'It\'s easy to do, but it can make the other person feel brushed off.' },
+    ],
+    talk: 'Why can it feel awkward to get a compliment?' },
+  { stage: 'kid', title: 'The last slice', text: 'You and your sibling both want the last slice of pizza.',
+    choices: [
+      { t: 'Offer to split it in half.', h: 2, fb: 'Splitting it means you both win.' },
+      { t: 'Play rock-paper-scissors for it.', h: 1, fb: 'A fair way to decide. Nice!' },
+      { t: 'Grab it fast before they can.', h: -1, fb: 'You got pizza, but your sibling got grumpy.' },
+    ],
+    talk: 'What are other fair ways to decide when two people want the same thing?' },
+  { stage: 'kid', title: 'A gift you don\'t like', text: 'Your aunt gives you a sweater you really don\'t like.',
+    choices: [
+      { t: '"Thank you for thinking of me!"', h: 2, fb: 'You can be thankful for the thought, even if the gift isn\'t your style.' },
+      { t: '"I already have one like this."', h: -1, fb: 'That might be true, but it can make the giver feel bad.' },
+      { t: 'Make a face and put it down.', h: -1, fb: 'Faces say a lot! Your aunt probably noticed.' },
+    ],
+    talk: 'How can you be honest AND kind at the same time?' },
+  { stage: 'kid', title: 'Friend\'s better grade', text: 'Your friend gets a better grade than you on a test you studied hard for.',
+    choices: [
+      { t: '"Congrats! How did you study?"', h: 2, fb: 'Being happy for others AND learning from them is a superpower.' },
+      { t: '"You probably just got lucky."', h: -2, fb: 'That can take away from their hard work.' },
+      { t: 'Say nothing and sulk.', h: -1, fb: 'Feeling disappointed is normal. Talking about it helps more than sulking.' },
+    ],
+    talk: 'Is it okay to feel jealous? What can you DO with that feeling?' },
+  { stage: 'kid', title: 'Teacher\'s mistake', text: 'Your teacher writes a math problem on the board with a mistake in it.',
+    choices: [
+      { t: 'Raise your hand and politely point it out.', h: 1, c: 5, fb: 'Polite and helpful. Your teacher thanks you!' },
+      { t: 'Shout, "That\'s WRONG!"', h: -1, fb: 'You were right, but HOW you say it matters too.' },
+      { t: 'Say nothing.', h: 0, fb: 'Now the whole class might learn it wrong...' },
+    ],
+    talk: 'How can you tell someone they made a mistake without embarrassing them?' },
+
+  // ---- teen ----
+  { stage: 'teen', title: 'Keeping a secret', text: 'Your friend tells you a secret. Later, another kid asks you what it is.',
+    choices: [
+      { t: '"Sorry, that\'s not mine to share."', h: 2, fb: 'Being trustworthy is one of the best things a friend can be.' },
+      { t: 'Drop a little hint.', h: -1, fb: 'Even a hint can spread fast.' },
+      { t: 'Tell them. It\'s not a big deal.', h: -2, fb: 'Your friend may not trust you with secrets again.' },
+    ],
+    talk: 'When is it OKAY to tell a secret? (Hint: if someone could get hurt.)' },
+  { stage: 'teen', title: 'The new haircut', text: 'Your friend got a haircut that you don\'t love. They ask, "What do you think?"',
+    choices: [
+      { t: '"It\'s different! I like that you tried something new."', h: 2, fb: 'Honest and kind. That\'s the sweet spot.' },
+      { t: '"I love it!" (even though you don\'t)', h: 1, fb: 'A small white lie spared their feelings. Is there a way to be kind AND honest?' },
+      { t: '"Honestly? It looks bad."', h: -1, fb: 'Honest, but ouch. They can\'t change it now!' },
+    ],
+    talk: 'When is honesty helpful, and when can it just hurt?' },
+  { stage: 'teen', title: 'Two invitations', text: 'Two friends invite you to different things on the same Saturday.',
+    choices: [
+      { t: 'Pick one, and kindly tell the other the truth.', h: 2, fb: 'Being honest about plans keeps both friendships strong.' },
+      { t: 'Say yes to both, then skip one.', h: -2, fb: 'Someone gets left waiting. That hurts trust.' },
+      { t: 'Don\'t answer either one.', h: -1, fb: 'Leaving people hanging makes planning hard for them.' },
+    ],
+    talk: 'How would you say no to an invitation nicely?' },
+  { stage: 'teen', title: 'Group project', text: 'Someone in your group project isn\'t doing any of the work.',
+    choices: [
+      { t: 'Ask them which part they\'d like to do.', h: 2, fb: 'Sometimes people are stuck or shy. Asking helps them jump in.' },
+      { t: 'Do their part yourself and say nothing.', h: 0, c: -5, fb: 'The project gets done, but you\'re exhausted and annoyed.' },
+      { t: 'Complain about them to everyone else.', h: -1, fb: 'Talking behind their back doesn\'t solve the problem.' },
+    ],
+    talk: 'What could make someone not do their part?' },
+  { stage: 'teen', title: 'The video game talk', text: 'Your friend keeps talking about a video game you don\'t care about.',
+    choices: [
+      { t: 'Listen, then ask a question about it.', h: 2, fb: 'Showing interest in what friends love makes them feel valued.' },
+      { t: 'Listen a bit, then gently change the subject.', h: 1, fb: 'Conversations should go both ways. That\'s fair!' },
+      { t: '"This is SO boring."', h: -1, fb: 'True for you, maybe, but it can make your friend feel dumb.' },
+    ],
+    talk: 'How can you tell if someone is interested in what you\'re saying?' },
+  { stage: 'teen', title: 'Teasing online', text: 'You see someone being teased in a group chat.',
+    choices: [
+      { t: 'Message the person something kind, and tell a trusted adult.', h: 2, fb: 'You stood up for someone. That takes courage.' },
+      { t: 'Just scroll past.', h: 0, fb: 'Staying out of it feels safe, but the person might feel totally alone.' },
+      { t: 'Add a laughing emoji.', h: -2, fb: 'Even one emoji joins in on the teasing.' },
+    ],
+    talk: 'What makes it hard to speak up? What makes it easier?' },
+  { stage: 'teen', title: 'Last-minute cancel', text: 'Your friend cancels plans with you an hour before.',
+    choices: [
+      { t: '"I was looking forward to it. Can we pick another day?"', h: 2, fb: 'Sharing your feelings calmly AND making a new plan is great.' },
+      { t: '"That\'s okay!" (but you\'re actually upset)', h: 0, fb: 'Keeping peace is nice, but your feelings matter too.' },
+      { t: 'Give them the silent treatment for a week.', h: -2, fb: 'They may not even know what they did wrong.' },
+    ],
+    talk: 'How do you tell a friend you\'re upset without starting a fight?' },
+  { stage: 'teen', title: 'Copying homework', text: 'A classmate asks to copy your homework.',
+    choices: [
+      { t: '"I can\'t, but I can help explain it."', h: 2, fb: 'You helped without getting anyone in trouble.' },
+      { t: 'Let them copy it.', h: 0, c: -5, fb: 'The teacher noticed the matching answers... uh oh.' },
+      { t: '"No way. Figure it out yourself."', h: -1, fb: 'Saying no is fine, but the way you said it stung.' },
+    ],
+    talk: 'Why is it hard to say no to friends?' },
+  { stage: 'teen', title: 'Nervous presentation', text: 'You have to give a presentation tomorrow and you\'re really nervous.',
+    choices: [
+      { t: 'Practice it in front of a friend or family member.', h: 1, c: 10, fb: 'Practice makes it way less scary. You nailed it!' },
+      { t: 'Pretend to be sick tomorrow.', h: -1, fb: 'Now you still have to do it... AND you\'re behind.' },
+      { t: 'Don\'t think about it and wing it.', h: 0, fb: 'It went okay, but your heart was pounding the whole time.' },
+    ],
+    talk: 'What helps you calm down when you\'re nervous?' },
+
+  // ---- adult ----
+  { stage: 'adult', title: 'Stolen idea', text: 'At work, a coworker tells the boss YOUR idea like it was theirs.',
+    choices: [
+      { t: 'Talk to them privately and calmly about it.', h: 1, c: 10, fb: 'They apologize and give you credit at the next meeting.' },
+      { t: 'Call them out in front of everyone.', h: -1, fb: 'You got credit, but now the whole team feels awkward.' },
+      { t: 'Say nothing and stay mad.', h: 0, fb: 'Holding it in can make you feel worse over time.' },
+    ],
+    talk: 'Why is it often better to talk about problems privately?' },
+  { stage: 'adult', title: 'Roommate dishes', text: 'Your roommate leaves dirty dishes in the sink every single day.',
+    choices: [
+      { t: 'Calmly suggest a chore chart together.', h: 2, fb: 'Solving it together keeps your home peaceful.' },
+      { t: 'Leave angry sticky notes.', h: -1, fb: 'Notes can sound meaner than you meant.' },
+      { t: 'Put their dishes on their bed.', h: -2, fb: 'Now it\'s a war. Nobody wins a dish war.' },
+    ],
+    talk: 'What\'s a calm way to start a hard conversation?' },
+  { stage: 'adult', title: 'Staying late', text: 'Your boss asks you to stay late, but you promised to meet a friend.',
+    choices: [
+      { t: 'Explain your plans and offer to come in early tomorrow.', h: 1, c: 5, fb: 'Your boss appreciates the honesty AND the offer.' },
+      { t: 'Stay late and cancel on your friend.', h: -1, c: 15, fb: 'Extra money, but your friend is disappointed.' },
+      { t: 'Just leave without saying anything.', h: -1, c: -10, fb: 'Your boss is not happy about that.' },
+    ],
+    talk: 'How do you balance work, school, and friends?' },
+  { stage: 'adult', title: 'Lending money', text: 'A friend asks to borrow 20 coins.',
+    choices: [
+      { t: 'Lend it, and agree on when they\'ll pay you back.', h: 2, c: -20, fb: 'Clear agreements keep money from hurting friendships.' },
+      { t: '"Sorry, I can\'t right now."', h: 0, fb: 'It\'s okay to say no to lending money.' },
+      { t: 'Give them a long lecture about saving.', h: -1, fb: 'They just needed a yes or no, not a lecture.' },
+    ],
+    talk: 'Is it okay to say no to a friend? How?' },
+  { stage: 'adult', title: 'New coworker', text: 'A new coworker sits down near you at lunch.',
+    choices: [
+      { t: 'Introduce yourself and ask what they like to do.', h: 2, fb: 'You might have just met a new friend.' },
+      { t: 'Smile, then eat quietly.', h: 0, fb: 'Friendly, but you missed a chance to connect.' },
+      { t: 'Stay on your phone.', h: -1, fb: 'They felt invisible on their first day.' },
+    ],
+    talk: 'What are good questions to get to know someone?' },
+  { stage: 'adult', title: 'Struggling coworker', text: 'A coworker is struggling with a task you know how to do well.',
+    choices: [
+      { t: 'Offer to show them how.', h: 2, fb: 'Helping makes the whole team stronger.' },
+      { t: 'Wait until they ask for help.', h: 0, fb: 'Respectful, but they might be too shy to ask.' },
+      { t: 'Tell the boss they\'re slow.', h: -2, fb: 'That hurts trust on the team.' },
+    ],
+    talk: 'How can you offer help without making someone feel bad?' },
+  { stage: 'adult', title: 'Party where you know no one', text: 'You go to a party and don\'t know anyone there.',
+    choices: [
+      { t: 'Find someone standing alone and say hi.', h: 2, fb: 'They were nervous too. Now you\'re both having fun!' },
+      { t: 'Offer to help the host.', h: 1, fb: 'Helping gives you something to do AND people to talk to.' },
+      { t: 'Leave after 5 minutes.', h: 0, fb: 'That\'s okay sometimes. But you might have missed some fun.' },
+    ],
+    talk: 'What do you do when you feel shy in a new place?' },
+  { stage: 'adult', title: 'Friend\'s art show', text: 'Your friend invites you to their art show, but you\'re tired after work.',
+    choices: [
+      { t: 'Go for a little while and tell them your favorite piece.', h: 2, fb: 'Showing up for friends means a lot.' },
+      { t: 'Text them "Good luck! Sorry I can\'t make it."', h: 1, fb: 'Not there in person, but you still showed you care.' },
+      { t: 'Forget to answer.', h: -1, fb: 'Your friend kept looking at the door for you.' },
+    ],
+    talk: 'What are ways to show a friend you care about what they love?' },
+
+  // ---- any age ----
+  { stage: 'any', title: 'Getting interrupted', text: 'Someone keeps interrupting you while you\'re telling a story.',
+    choices: [
+      { t: '"Hang on, let me finish, then I want to hear yours!"', h: 2, fb: 'Calm, clear, and friendly. Great job speaking up!' },
+      { t: 'Stop and let them take over.', h: 0, fb: 'Polite, but your story matters too.' },
+      { t: 'Talk louder over them.', h: -1, fb: 'Now nobody is listening to anybody.' },
+    ],
+    talk: 'Have YOU ever interrupted someone without meaning to?' },
+  { stage: 'any', title: '"I\'m fine."', text: 'Your friend seems sad, but when you ask, they say, "I\'m fine."',
+    choices: [
+      { t: '"Okay. I\'m here if you want to talk."', h: 2, fb: 'You respected their space AND showed you care.' },
+      { t: 'Keep asking until they tell you.', h: -1, fb: 'Pushing can make people shut down more.' },
+      { t: 'Ignore it. They said they\'re fine.', h: 0, fb: 'Sometimes "I\'m fine" isn\'t really fine.' },
+    ],
+    talk: 'How can you tell when someone isn\'t really fine?' },
+  { stage: 'any', title: 'You messed up', text: 'You said something that upset your friend.',
+    choices: [
+      { t: 'Apologize and say what you\'ll do differently.', h: 2, fb: 'A real apology can make a friendship even stronger.' },
+      { t: '"Sorry you feel that way."', h: -1, fb: 'That\'s not really an apology. It puts the blame on them.' },
+      { t: 'Blame someone else.', h: -2, fb: 'Your friend can tell. Trust takes a hit.' },
+    ],
+    talk: 'What makes an apology feel real?' },
+  { stage: 'any', title: 'Picking a movie', text: 'Your group is picking a movie and nobody can agree.',
+    choices: [
+      { t: 'Suggest everyone votes.', h: 2, fb: 'Fair and fast. Popcorn time!' },
+      { t: 'Insist on the one YOU want.', h: -1, fb: 'You got your movie, but nobody enjoyed it much.' },
+      { t: 'Say "I don\'t care" and go along with anything.', h: 0, fb: 'Easygoing, but your opinion counts too!' },
+    ],
+    talk: 'When should you go along with the group, and when should you speak up?' },
+  { stage: 'any', title: 'A different opinion', text: 'Someone shares an opinion you totally disagree with.',
+    choices: [
+      { t: '"Interesting. Why do you think that?"', h: 2, fb: 'Curiosity keeps conversations friendly, even when you disagree.' },
+      { t: '"You\'re wrong."', h: -1, fb: 'That ends the conversation fast.' },
+      { t: 'Roll your eyes.', h: -1, fb: 'Eye rolls speak loudly. They noticed!' },
+    ],
+    talk: 'Can two friends disagree and still be good friends?' },
+  { stage: 'any', title: 'Finding money', text: 'You find 10 coins on the floor near someone\'s desk.',
+    choices: [
+      { t: 'Ask around to find out whose it is.', h: 2, fb: 'The owner is SO relieved. They thank you a bunch.' },
+      { t: 'Keep it. Finders keepers!', h: -1, c: 10, fb: 'More coins, but someone is out there looking for it.' },
+      { t: 'Give it to a teacher or boss.', h: 1, fb: 'A responsible choice!' },
+    ],
+    talk: 'Would you want someone to return YOUR lost money?' },
+];
+
+const SHARE = [
+  'What\'s something you\'re really good at?',
+  'If you could visit anywhere in the world, where would you go?',
+  'What\'s the best thing that happened to you this week?',
+  'Describe your perfect weekend.',
+  'Would you rather be able to fly or be invisible? Why?',
+  'What food could you eat every single day?',
+  'Who is someone you look up to?',
+  'What\'s a show, book, or game you love right now?',
+  'If you had a robot, what chore would it do for you?',
+  'What\'s something that always makes you laugh?',
+  'What\'s a skill you want to learn someday?',
+  'What would you name a pet dragon?',
+  'What\'s your favorite holiday or celebration, and why?',
+  'What\'s something that\'s hard for you, but you keep trying?',
+  'If you invented a new holiday, what would it celebrate?',
+  'What\'s the best advice anyone ever gave you?',
+  'What\'s one thing that makes a good friend?',
+  'If you could have any animal as a pet, what would it be?',
+  'What\'s something you\'re proud of?',
+  'What would your dream job be, if anything were possible?',
+];
+const FOLLOWUPS = ['Why did you pick that?', 'What\'s your favorite part?', 'How did that feel?', 'Can you tell me more about...?', 'Have you ever...?', 'What would you do if...?'];
+
+const OOPS = [
+  { title: 'Cracked phone', text: 'You drop your phone and the screen cracks!', cost: 15,
+    choices: [
+      { t: 'Take a deep breath. It\'s fixable.', h: 1, fb: 'Staying calm helps you think about what to do next.' },
+      { t: 'Ask someone you trust how to fix it cheaply.', h: 1, c: 5, fb: 'They know a cheap repair shop. You get 5 back!' },
+      { t: 'Stomp around and slam doors.', h: -1, fb: 'The phone is still cracked, and now everyone\'s upset.' },
+    ] },
+  { title: 'Rained out', text: 'Rain cancels the beach day you were super excited about.', cost: 0,
+    choices: [
+      { t: 'Plan an indoor picnic instead.', h: 2, fb: 'Being flexible turned a bad day into a fun one!' },
+      { t: 'Complain about it all day.', h: -1, fb: 'The rain didn\'t stop, and the day felt longer.' },
+      { t: 'Take some quiet time to feel disappointed, then do something cozy.', h: 1, fb: 'It\'s okay to feel bummed. You took care of yourself.' },
+    ] },
+  { title: 'Forgot the deadline', text: 'You forgot about a big assignment that\'s due today!', cost: 10,
+    choices: [
+      { t: 'Tell the truth and ask for a little more time.', h: 1, c: 5, fb: 'Honesty earned you an extra day.' },
+      { t: 'Make up an excuse.', h: -1, fb: 'Excuses are hard to keep straight...' },
+      { t: 'Panic and hide.', h: 0, fb: 'Hiding makes the problem grow. What\'s one small step you could take?' },
+    ] },
+  { title: 'Flat tire', text: 'Your bike gets a flat tire on the way to a friend\'s house.', cost: 10,
+    choices: [
+      { t: 'Text your friend that you\'ll be late.', h: 1, fb: 'Your friend appreciates the heads-up.' },
+      { t: 'Ask someone nearby for help.', h: 1, fb: 'A kind neighbor helps you pump it up.' },
+      { t: 'Kick the bike.', h: -1, fb: 'Now your foot hurts too.' },
+    ] },
+  { title: 'Spilled juice', text: 'You spill juice all over your shirt right before picture day.', cost: 5,
+    choices: [
+      { t: 'Laugh it off. It\'ll be a funny story.', h: 1, fb: 'Being able to laugh at yourself is a great skill.' },
+      { t: 'Borrow a sweater from a friend.', h: 1, fb: 'Problem solved, with a little help from a friend!' },
+      { t: 'Refuse to take the picture.', h: 0, fb: 'It\'s okay to be upset. What could help you calm down?' },
+    ] },
+  { title: 'Big loss', text: 'Your team loses the championship game.', cost: 0,
+    choices: [
+      { t: 'Congratulate the other team.', h: 2, fb: 'That\'s what real sportsmanship looks like.' },
+      { t: 'Tell your teammates you\'re proud of them.', h: 2, fb: 'Your team feels better already.' },
+      { t: 'Blame the referee.', h: -1, fb: 'Blaming doesn\'t change the score.' },
+    ] },
+  { title: 'Lost game save', text: 'Your video game save file gets deleted. Hours of progress, gone!', cost: 0,
+    choices: [
+      { t: 'Take a break and come back later.', h: 1, fb: 'Stepping away helps big feelings shrink.' },
+      { t: 'Start over and try a new strategy.', h: 1, c: 5, fb: 'Round two goes even better!' },
+      { t: 'Yell at whoever is nearby.', h: -2, fb: 'It wasn\'t their fault, and now they feel bad.' },
+    ] },
+  { title: 'Flooded laundry', text: 'The washing machine floods the floor!', cost: 25,
+    choices: [
+      { t: 'Stay calm, turn off the water, and call for help.', h: 1, c: 10, fb: 'Quick, calm thinking saved you money.' },
+      { t: 'Ask a neighbor to help you mop.', h: 2, fb: 'Many hands make a mess disappear.' },
+      { t: 'Panic and run in circles.', h: 0, fb: 'Totally understandable! What\'s step one next time?' },
+    ] },
+  { title: 'Sick on vacation', text: 'You catch a cold on the first day of vacation.', cost: 10,
+    choices: [
+      { t: 'Rest up and send funny postcards to friends.', h: 1, fb: 'Making the best of it!' },
+      { t: 'Be grumpy to everyone.', h: -1, fb: 'Being sick is hard, but now everyone\'s vacation is grumpy.' },
+      { t: 'Tell your family what you need to feel better.', h: 1, fb: 'Asking for what you need is a great skill.' },
+    ] },
+  { title: 'Missed the bus', text: 'You miss the bus by about three seconds.', cost: 5,
+    choices: [
+      { t: 'Figure out a new plan: walk, call someone, or wait.', h: 1, fb: 'Problem-solving mode: ACTIVATED.' },
+      { t: 'Chase it, yelling.', h: 0, fb: 'Good cardio, but the bus is gone.' },
+      { t: 'Decide the whole day is ruined.', h: -1, fb: 'One bad moment doesn\'t have to ruin a whole day.' },
+    ] },
+];
+
+// Life events: c/h for the current player; gift = each other player gives you that many coins; all = everyone gets hearts.
+const EVENTS = [
+  { icon: '🐶', text: 'You adopt a puppy!', c: -10, h: 1, act: 'Show everyone your best puppy impression!' },
+  { icon: '🏆', text: 'You win the science fair!', c: 20, act: 'Tell us: what would YOUR project be?' },
+  { icon: '🎂', text: 'It\'s your birthday! Every other player gives you 5 coins.', gift: 5, act: 'Everyone, sing or say "Happy Birthday!"' },
+  { icon: '🍋', text: 'Your lemonade stand is a hit!', c: 15 },
+  { icon: '🎸', text: 'Your band plays its first show!', c: 20, act: 'Everyone, play some air guitar!' },
+  { icon: '🌱', text: 'You plant a community garden with your neighbors.', h: 2 },
+  { icon: '🍕', text: 'You win a pizza party for the whole group! Everyone gets +1 ❤️.', all: 1 },
+  { icon: '📚', text: 'You read 20 books this summer and win a library prize!', c: 10, act: 'What\'s a book or story you liked?' },
+  { icon: '🧳', text: 'Family road trip!', c: -15, h: 2, act: 'Where would you want to go?' },
+  { icon: '🏅', text: 'You\'re named "Helper of the Month"!', c: 25 },
+  { icon: '🎨', text: 'You sell a painting!', c: 20 },
+  { icon: '🐱', text: 'A friendly stray cat follows you home.', h: 1, act: 'What would you name it?' },
+  { icon: '🎁', text: 'Surprise! A relative mails you a gift.', c: 15 },
+  { icon: '🎤', text: 'Karaoke night with friends!', h: 1, act: 'Hum or sing one line of a song you love!' },
+];
+
+/* Coping strategies the player demonstrates. guide = optional guided breathing: [label, seconds, grow?] */
+const COPING = [
+  { icon: '🟦', name: 'Box Breathing', short: 'Breathe in 4, hold 4, out 4, hold 4.',
+    steps: ['Breathe IN slowly while you count to 4.', 'HOLD your breath for 4.', 'Breathe OUT slowly for 4.', 'HOLD for 4. Do it 3 times!'],
+    guide: [['Breathe in', 4, true], ['Hold', 4, true], ['Breathe out', 4, false], ['Hold', 4, false]] },
+  { icon: '🌸', name: 'Smell the Flower, Blow Out the Candle', short: 'Big sniff in through your nose, slow blow out.',
+    steps: ['Hold up one finger like a flower. 🌸', 'Smell it: breathe IN through your nose.', 'Now it\'s a candle. 🕯️ Blow it out SLOWLY.', 'Do it 3 times!'],
+    guide: [['Smell the flower 🌸', 4, true], ['Blow out the candle 🕯️', 5, false]] },
+  { icon: '👀', name: '5-4-3-2-1 Senses', short: 'Name things you can see, feel, hear, smell, and taste.',
+    steps: ['Name 5 things you can SEE.', 'Name 4 things you can FEEL.', 'Name 3 things you can HEAR.', 'Name 2 things you can SMELL, and 1 you can TASTE.'] },
+  { icon: '💪', name: 'Squeeze and Let Go', short: 'Squeeze your muscles tight, then let them go loose.',
+    steps: ['Squeeze your fists SUPER tight. Count to 5.', 'Let go. Notice how floppy they feel.', 'Now scrunch your shoulders up to your ears. Count to 5.', 'Drop them! Ahhh.'] },
+  { icon: '🔢', name: 'Slow Count to 10', short: 'Count slowly to 10 before you react.',
+    steps: ['Stop what you\'re doing.', 'Count out loud, SLOWLY, from 1 to 10.', 'Take one big breath at the end.', 'Now, what\'s a calm thing you could do next?'] },
+  { icon: '💬', name: 'Positive Self-Talk', short: 'Say something kind and calming to yourself.',
+    steps: ['Pick a calming phrase:', '"I can handle this." · "This feeling will pass."', '"Mistakes help me learn." · "I\'ll try again."', 'Say it out loud, like you mean it!'] },
+  { icon: '🏷️', name: 'Name the Feeling', short: 'Put your feeling into words.',
+    steps: ['Think about how you\'d feel in this situation.', 'Say it out loud: "I feel ___ because ___."', 'Show the feeling on your face, too.', 'Everyone else: does that make sense? Have you felt that?'] },
+  { icon: '🙌', name: 'Shake It Out', short: 'Shake out the stress for 10 seconds.',
+    steps: ['Shake your hands!', 'Shake your arms!', 'Shake your shoulders (and your legs, if you\'re standing)!', 'Freeze! Take one deep breath.'] },
+  { icon: '🏝️', name: 'Happy Place', short: 'Picture a calm place and describe it.',
+    steps: ['Close your eyes (or look down).', 'Picture a calm, happy place.', 'Tell us 3 things about it: what you see, hear, and feel.', 'Open your eyes. How do you feel now?'] },
+  { icon: '🙋', name: 'Ask for Help', short: 'Practice asking someone for help, calmly.',
+    steps: ['Pick someone in the group.', 'Look at them (or their video square).', 'Say: "Can you help me with ___?"', 'Then say "Thanks!" when they answer.'] },
+  { icon: '⏸️', name: 'Take a Break', short: 'Say that you need a break, and how long.',
+    steps: ['Say: "I need a minute to calm down."', 'Say what you\'ll do: get water, sit quietly, or breathe.', 'Say: "I\'ll come back when I\'m ready."', 'Taking a break is a strong choice, not giving up!'] },
+  { icon: '🐢', name: 'Turtle Shell', short: 'Stop, go into your shell, breathe, and come out with a plan.',
+    steps: ['STOP. Freeze like a turtle.', 'Go into your shell: hug yourself and tuck your chin.', 'Take 3 slow breaths inside your shell.', 'Come out and say one calm thing you could do next.'],
+    guide: [['In your shell: breathe in', 4, true], ['Breathe out', 4, false]] },
+];
+const COPE_TRIGGERS = [
+  'Imagine: you worked really hard on a drawing and someone spilled water on it.',
+  'Imagine: you lost a game you really wanted to win.',
+  'Imagine: your friend said something that hurt your feelings.',
+  'Imagine: you have a big test tomorrow and you\'re really nervous.',
+  'Imagine: plans you were excited about just got canceled.',
+  'Imagine: you made a mistake in front of the whole class.',
+  'Imagine: your little brother or sister broke something of yours.',
+  'Imagine: it\'s your first day somewhere new and you don\'t know anyone.',
+  'Imagine: your computer froze and you lost your work.',
+  'Imagine: someone cut in front of you in line.',
+];
+
+const HELP_WAYS = [
+  { id: 'coins', icon: '💰', t: 'Give them 10 coins', d: 'They get +10 💰. You get +1 ❤️.' },
+  { id: 'compliment', icon: '🌟', t: 'Give a real compliment', d: 'Say it out loud! You both get +1 ❤️.' },
+  { id: 'offer', icon: '🤝', t: 'Offer to help with something', d: 'Say what you\'d help with! You both get +1 ❤️.' },
+];
+
+const WORK_CAREERS = [
+  { icon: '🧑‍🍳', name: 'Chef', salary: 30 },
+  { icon: '🔧', name: 'Mechanic', salary: 35 },
+  { icon: '📬', name: 'Mail Carrier', salary: 30 },
+  { icon: '🥐', name: 'Baker', salary: 30 },
+  { icon: '💇', name: 'Hair Stylist', salary: 30 },
+  { icon: '🚜', name: 'Farmer', salary: 35 },
+  { icon: '🏗️', name: 'Builder', salary: 35 },
+  { icon: '🎮', name: 'Game Streamer', salary: 25 },
+];
+const COLLEGE_CAREERS = [
+  { icon: '🐾', name: 'Veterinarian', salary: 55 },
+  { icon: '🍎', name: 'Teacher', salary: 45 },
+  { icon: '🔬', name: 'Scientist', salary: 60 },
+  { icon: '🩺', name: 'Nurse', salary: 55 },
+  { icon: '🕹️', name: 'Game Designer', salary: 55 },
+  { icon: '⚙️', name: 'Engineer', salary: 60 },
+  { icon: '🩻', name: 'Doctor', salary: 70 },
+  { icon: '🚀', name: 'Astronaut', salary: 65 },
+];
+const HOMES = [
+  { icon: '🏢', name: 'City Apartment', cost: 30, value: 45 },
+  { icon: '🏡', name: 'House with a Yard', cost: 60, value: 90 },
+  { icon: '🌳', name: 'Treehouse Home', cost: 45, value: 70 },
+  { icon: '🛥️', name: 'Houseboat', cost: 50, value: 75 },
+  { icon: '🏰', name: 'Tiny Castle', cost: 80, value: 120 },
+  { icon: '🚐', name: 'Camper Van', cost: 25, value: 35 },
+];
+
+const START_COINS = 50;
+const ALLOWANCE = 10;
+const COLLEGE_COST = 40;
+const FINISH_BONUS = [40, 30, 20, 10];
+const HEART_POINTS = 10;
+
+/* =========================================================
+   STATE
+   ========================================================= */
+
+const S = {
+  phase: 'setup',     // setup | spin | spinning | move | card | party
+  movesLeft: 0,
+  players: [],
+  turn: 0,
+  spinMax: 6,
+  autoRead: false,
+  sound: true,
+  card: null,
+  decks: {},
+  wheelAngle: 0,
+  lastSpin: null,
+  finishCount: 0,
+  modal: null,        // overlay modals that sit on top: help, confirm-end, confirm-new
+  setup: {
+    count: 2,
+    names: ['', '', '', ''],
+    avatars: [0, 1, 2, 3],
+    spinMax: 6,
+  },
+  toast: null,
+};
+
+const rand = n => Math.floor(Math.random() * n);
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = rand(i + 1);
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const reduced = () => window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const cur = () => S.players[S.turn];
+
+// Draw without repeats until a deck runs out, then reshuffle.
+function drawFrom(key, items) {
+  if (!S.decks[key] || !S.decks[key].length) S.decks[key] = shuffle(items.slice());
+  return S.decks[key].pop();
+}
+function drawSocial(pos) {
+  const stage = stageAt(pos);
+  return drawFrom('social-' + stage, SOCIAL.filter(s => s.stage === stage || s.stage === 'any'));
+}
+
+function applyFx(p, c = 0, h = 0) {
+  p.coins += c;
+  p.hearts = Math.max(0, p.hearts + h);
+}
+function fxText(c = 0, h = 0) {
+  const parts = [];
+  if (h) parts.push(`${h > 0 ? '+' : '−'}${Math.abs(h)} ❤️`);
+  if (c) parts.push(`${c > 0 ? '+' : '−'}${Math.abs(c)} 💰`);
+  return parts.length ? parts.join('  ·  ') : 'No change';
+}
+const fmtCoins = n => (n < 0 ? '−' : '') + Math.abs(n);
+
+/* =========================================================
+   GAME FLOW
+   ========================================================= */
+
+function startGame() {
+  const st = S.setup;
+  S.players = [];
+  for (let i = 0; i < st.count; i++) {
+    S.players.push({
+      name: (st.names[i] || '').trim() || `Player ${i + 1}`,
+      avatar: AVATARS[st.avatars[i]],
+      color: PCOLORS[i],
+      pos: 0,
+      coins: START_COINS,
+      hearts: 0,
+      career: null,
+      salary: ALLOWANCE,
+      path: null,
+      home: null,
+      done: false,
+      finishPlace: null,
+      story: [],
+    });
+  }
+  S.spinMax = st.spinMax;
+  S.turn = 0;
+  S.decks = {};
+  S.card = null;
+  S.finishCount = 0;
+  S.lastSpin = null;
+  S.phase = 'spin';
+  S.modal = null;
+  buildWheel();
+  sfx('yay');
+  renderAll();
+}
+
+async function spin() {
+  if (S.phase !== 'spin') return;
+  S.phase = 'spinning';
+  const n = S.spinMax;
+  const result = 1 + rand(n);
+  const centre = (result - 0.5) * 360 / n;
+  const target = ((-centre - S.wheelAngle) % 360 + 360) % 360;
+  S.wheelAngle += 360 * 4 + target;
+  const g = document.getElementById('wheelRot');
+  const dur = reduced() ? 0 : 1700;
+  g.style.transition = dur ? `transform ${dur}ms cubic-bezier(.15,.85,.25,1)` : 'none';
+  g.style.transform = `rotate(${S.wheelAngle}deg)`;
+  document.getElementById('spinResult').textContent = 'Spinning...';
+  renderSide();
+  sfx('spin');
+  await sleep(dur + 150);
+  S.lastSpin = result;
+  S.movesLeft = result;
+  S.phase = 'move';
+  renderAll();
+}
+
+// The furthest space the current move can reach: the spin count, cut short by a STOP space or the finish.
+function moveLimit() {
+  const p = cur();
+  const max = Math.min(LAST, p.pos + S.movesLeft);
+  for (let i = p.pos + 1; i <= max; i++) {
+    if (BOARD[i] === 'finish' || TYPES[BOARD[i]].stop) return i;
+  }
+  return max;
+}
+
+// The player moves their own piece. Tapping the glowing next space hops one step;
+// tapping any space further along (up to where they'll land) moves straight there,
+// so players can count step by step or count in their head.
+function hop(target) {
+  const p = cur();
+  if (S.phase !== 'move') return;
+  if (target <= p.pos) {
+    toast(target === p.pos ? 'That\'s where you are now! Tap the "👣 Step here" space just ahead of you.' : 'Pieces only move forward! Tap a space ahead of you.');
+    return;
+  }
+  const limit = moveLimit();
+  if (target > limit) {
+    const left = `You have ${S.movesLeft} space${S.movesLeft === 1 ? '' : 's'} to move.`;
+    toast(target <= p.pos + S.movesLeft
+      ? `🛑 There's a STOP space on the way! You have to stop there first.`
+      : `Too far! ${left} Count again, or tap "👣 Step here" to go one space at a time.`);
+    return;
+  }
+  let passedPay = 0;
+  const start = p.pos;
+  while (p.pos < target) {
+    p.pos++;
+    S.movesLeft--;
+    if (BOARD[p.pos] === 'payday' && p.pos < target) { applyFx(p, p.salary, 0); passedPay++; }
+  }
+  pieceClicks(target - start);
+  // Landing on a payday mid-move (more spaces to go) counts as passing it.
+  if (BOARD[p.pos] === 'payday' && S.movesLeft > 0) { applyFx(p, p.salary, 0); passedPay++; }
+  const type = BOARD[p.pos];
+  if (type === 'finish' || TYPES[type].stop) {
+    if (S.movesLeft > 0 && type !== 'finish') toast(`🛑 STOP space! ${p.name} stops here, even with moves left.`);
+    else if (passedPay) toast(`💰 ${p.name} passed Payday: +${p.salary * passedPay} coins!`);
+    S.movesLeft = 0;
+    land();
+    return;
+  }
+  if (passedPay) toast(`💰 ${p.name} passed Payday: +${p.salary * passedPay} coins!`);
+  if (S.movesLeft === 0) { land(); return; }
+  renderAll();
+}
+
+function land() {
+  const p = cur();
+  const type = BOARD[p.pos];
+  const card = { type, step: 'main', talked: [] };
+  switch (type) {
+    case 'social': {
+      card.data = drawSocial(p.pos);
+      card.order = shuffle([0, 1, 2]);
+      break;
+    }
+    case 'share': card.q = drawFrom('share', SHARE); break;
+    case 'cope': {
+      card.trigger = drawFrom('cope-trigger', COPE_TRIGGERS);
+      card.options = shuffle(COPING.slice()).slice(0, 3);
+      card.didIt = false;
+      card.together = false;
+      break;
+    }
+    case 'oops': {
+      card.data = drawFrom('oops', OOPS);
+      card.order = shuffle([0, 1, 2]);
+      card.showSkill = drawFrom('oops-skill', COPING);
+      card.showed = false;
+      applyFx(p, -card.data.cost, 0);
+      break;
+    }
+    case 'event': {
+      const ev = drawFrom('event', EVENTS);
+      card.data = ev;
+      if (ev.gift) {
+        for (const o of S.players) if (o !== p) { o.coins -= ev.gift; p.coins += ev.gift; }
+      } else if (ev.all) {
+        for (const o of S.players) applyFx(o, 0, ev.all);
+      } else {
+        applyFx(p, ev.c || 0, ev.h || 0);
+      }
+      p.story.push(`${ev.icon} ${ev.text}`);
+      break;
+    }
+    case 'payday': {
+      card.amount = p.salary + 10;
+      applyFx(p, card.amount, 0);
+      break;
+    }
+    case 'help': {
+      const others = S.players.map((o, i) => i).filter(i => i !== S.turn);
+      card.friend = others.length === 1 ? others[0] : null;
+      break;
+    }
+    case 'path': break;
+    case 'career': {
+      if (p.path === 'college' && !p.career) card.options = shuffle(COLLEGE_CAREERS.slice()).slice(0, 3);
+      else {
+        p.salary += 10;
+        card.raise = true;
+        p.story.push('💼 Got a raise for job experience');
+      }
+      break;
+    }
+    case 'home': card.options = shuffle(HOMES.slice()).slice(0, 3); break;
+    case 'finish': {
+      const place = S.finishCount++;
+      card.bonus = FINISH_BONUS[place] || 0;
+      card.place = place + 1;
+      p.done = true;
+      p.finishPlace = place + 1;
+      applyFx(p, card.bonus, 0);
+      p.story.push(`🎉 Reached the Life Party (#${place + 1})`);
+      break;
+    }
+  }
+  S.card = card;
+  S.phase = 'card';
+  sfx(type === 'oops' ? 'nope' : type === 'payday' || type === 'finish' ? 'yay' : 'pop');
+  renderAll();
+  if (S.autoRead) readCard();
+}
+
+function endTurn() {
+  S.card = null;
+  speechCancel();
+  const n = S.players.length;
+  for (let k = 1; k <= n; k++) {
+    const idx = (S.turn + k) % n;
+    if (!S.players[idx].done) {
+      S.turn = idx;
+      S.phase = 'spin';
+      document.getElementById('spinResult').textContent = '';
+      renderAll();
+      return;
+    }
+  }
+  S.phase = 'party';
+  sfx('yay');
+  renderAll();
+}
+
+/* --- card actions --- */
+
+function chooseSocial(idx) {
+  const c = S.card;
+  const choice = c.data.choices[idx];
+  const p = cur();
+  applyFx(p, choice.c || 0, choice.h || 0);
+  c.choice = choice;
+  c.step = 'result';
+  c.talked = [];
+  p.story.push(`${c.type === 'oops' ? '⚡' : '💬'} ${c.data.title}: “${choice.t}”`);
+  sfx(choice.h > 0 ? 'good' : choice.h < 0 ? 'nope' : 'pop');
+}
+
+function talked(i) {
+  const c = S.card;
+  if (c.talked.includes(i)) return;
+  c.talked.push(i);
+  applyFx(cur(), 0, 1);
+  applyFx(S.players[i], 0, 1);
+  sfx('good');
+}
+
+function chooseCoping(i) {
+  const c = S.card;
+  c.skill = c.options[i];
+  c.step = 'do';
+  cur().story.push(`🧘 Showed a coping skill: ${c.skill.name}`);
+  sfx('pop');
+}
+
+// Guided breathing: cycles through the skill's phases a few times, updating the circle in place.
+let guideTimer = null;
+function stopGuide() {
+  clearTimeout(guideTimer);
+  guideTimer = null;
+}
+function startGuide() {
+  const c = S.card;
+  if (!c || !c.skill || !c.skill.guide) return;
+  stopGuide();
+  const phases = [];
+  for (let r = 0; r < 3; r++) phases.push(...c.skill.guide);
+  let k = 0;
+  const circle = () => document.getElementById('breath');
+  const label = () => document.getElementById('breathLabel');
+  const step = () => {
+    if (!circle()) { stopGuide(); return; }
+    if (k >= phases.length) {
+      circle().style.transitionDuration = '1s';
+      circle().style.transform = 'scale(.55)';
+      circle().textContent = '✓';
+      label().textContent = 'Nice and calm. Great job!';
+      document.getElementById('guideBtn').textContent = '▶ Do it again';
+      guideTimer = null;
+      sfx('good');
+      return;
+    }
+    const [text, secs, grow] = phases[k++];
+    const el = circle();
+    el.style.transitionDuration = secs + 's';
+    el.style.transform = grow ? 'scale(1)' : 'scale(.55)';
+    label().textContent = `${text} (round ${Math.min(3, Math.ceil(k / c.skill.guide.length))} of 3)`;
+    let left = secs;
+    el.textContent = left;
+    const tick = () => {
+      left--;
+      if (!circle()) return;
+      if (left > 0) { circle().textContent = left; guideTimer = setTimeout(tick, 1000); }
+      else step();
+    };
+    guideTimer = setTimeout(tick, 1000);
+  };
+  document.getElementById('guideBtn').textContent = '⏹ Stop';
+  step();
+}
+
+function chooseHelp(wayId) {
+  const c = S.card;
+  if (c.friend == null) return;
+  const p = cur();
+  const f = S.players[c.friend];
+  const way = HELP_WAYS.find(w => w.id === wayId);
+  if (wayId === 'coins') { applyFx(p, -10, 1); applyFx(f, 10, 0); c.fx = `${p.name}: −10 💰 +1 ❤️ · ${f.name}: +10 💰`; }
+  else { applyFx(p, 0, 1); applyFx(f, 0, 1); c.fx = `${p.name}: +1 ❤️ · ${f.name}: +1 ❤️`; }
+  c.way = way;
+  c.step = 'result';
+  p.story.push(`🤝 Helped ${f.name}: ${way.t.toLowerCase()}`);
+  sfx('good');
+}
+
+function choosePath(path) {
+  const c = S.card;
+  const p = cur();
+  p.path = path;
+  if (path === 'college') {
+    applyFx(p, -COLLEGE_COST, 0);
+    p.story.push('🎓 Went to college');
+    c.step = 'result';
+  } else {
+    p.story.push('🛠️ Started working right away');
+    c.options = shuffle(WORK_CAREERS.slice()).slice(0, 3);
+    c.step = 'career';
+  }
+  sfx('pop');
+}
+
+function chooseCareer(i) {
+  const c = S.card;
+  const p = cur();
+  const job = c.options[i];
+  p.career = job;
+  p.salary = job.salary;
+  p.story.push(`${job.icon} Became a ${job.name}`);
+  c.job = job;
+  c.step = 'result';
+  sfx('yay');
+}
+
+function chooseHome(i) {
+  const c = S.card;
+  const p = cur();
+  if (i < 0) {
+    c.homeChoice = null;
+    p.story.push('🔑 Kept renting');
+  } else {
+    const h = c.options[i];
+    p.home = h;
+    applyFx(p, -h.cost, 0);
+    c.homeChoice = h;
+    p.story.push(`${h.icon} Bought a ${h.name}`);
+  }
+  c.step = 'result';
+  sfx('yay');
+}
+
+/* =========================================================
+   RENDERING
+   ========================================================= */
+
+function renderAll() {
+  const c = cur();
+  document.documentElement.style.setProperty('--turn', c ? c.color : '#29b6f6');
+  renderTop();
+  renderBanner();
+  renderBoard();
+  renderSide();
+  renderLayer();
+}
+
+function renderTop() {
+  const inGame = S.phase !== 'setup';
+  document.getElementById('topActions').innerHTML = `
+    <button class="btn" data-action="toggle-read" aria-pressed="${S.autoRead}" title="Read every card aloud automatically">🗣️ Auto-read: ${S.autoRead ? 'ON' : 'OFF'}</button>
+    <button class="btn" data-action="toggle-sound" aria-label="${S.sound ? 'Sound on' : 'Sound off'}" title="Sound">${S.sound ? '🔊' : '🔇'}</button>
+    <button class="btn" data-action="help">❓ Help</button>
+    ${inGame && S.phase !== 'party' ? '<button class="btn" data-action="end-game">🏁 End Game</button>' : ''}
+    <button class="btn btn-gold" data-action="new-game">🔄 New Game</button>`;
+}
+
+function renderBanner() {
+  const b = document.getElementById('banner');
+  if (S.phase === 'setup') { b.innerHTML = 'Set up your players to begin!'; return; }
+  if (S.phase === 'party') { b.innerHTML = '🎉 Life Party! Let\'s see everyone\'s life story.'; return; }
+  const p = cur();
+  const others = S.players.filter(o => o !== p).map(o => o.name).join(' & ');
+  const sub = S.phase === 'spin' ? 'Tap the spinner to spin!'
+    : S.phase === 'spinning' ? 'Spinning...'
+    : S.phase === 'move' ? `${S.movesLeft} to go! Tap "👣 Step here" to move one space, or tap where you'll land.`
+    : `${others}: listen and join in!`;
+  b.innerHTML = `${p.avatar} ${esc(p.name)}'s turn! <small>${esc(sub)}</small>`;
+}
+
+function renderBoard() {
+  const rows = [];
+  for (let r = 0; r < ROWS.length; r++) {
+    const idxs = [];
+    for (let k = 0; k < COLS; k++) idxs.push(r * COLS + k);
+    if (r % 2 === 1) idxs.reverse();
+    const cells = idxs.map(i => {
+      const type = BOARD[i];
+      const T = TYPES[type];
+      const here = S.players.map((p, pi) => ({ p, pi })).filter(x => x.p.pos === i && S.phase !== 'setup');
+      const tokens = here.map(x =>
+        `<span class="token ${x.pi === S.turn && S.phase !== 'party' ? 'now' : ''}" style="--pc:${x.p.color}" title="${esc(x.p.name)}">${x.p.avatar}</span>`).join('');
+      const dir = i === LAST ? '' : (r % 2 === 0 ? (i % COLS === COLS - 1 ? '⬇' : '➜') : (i % COLS === COLS - 1 ? '⬇' : '⬅'));
+      const moving = S.phase === 'move';
+      const next = moving && i === cur().pos + 1;
+      // Mark the current player's own space so the glowing "step here" space is clearly the one AHEAD of them.
+      const mine = (moving || S.phase === 'spin' || S.phase === 'spinning') && i === cur().pos;
+      const cls = ['cell', T.stop && 'stop', type === 'start' && 'start', type === 'finish' && 'finish', moving && 'clickable', next && 'next', mine && 'here'].filter(Boolean).join(' ');
+      const label = `${T.label}${here.length ? ', ' + here.map(x => x.p.name).join(', ') + ' here' : ''}${next ? ', tap to move one space' : ''}`;
+      const attrs = moving ? `data-action="hop" data-i="${i}" role="button" tabindex="${next ? 0 : -1}"` : '';
+      const badge = mine ? `<span class="here-badge" aria-hidden="true">📍 ${esc(cur().name)}</span>`
+        : next ? '<span class="step-badge" aria-hidden="true">👣 Step here</span>' : '';
+      return `<div class="${cls}" style="--tc:${T.color}${mine ? ';--pc:' + cur().color : ''}" ${attrs} aria-label="Space ${i}: ${esc(label)}">${badge}
+        <span class="num">${i || ''}</span><span class="dir" aria-hidden="true">${dir}</span>
+        <span class="ic" aria-hidden="true">${T.icon}</span><span class="lb">${T.label}</span>
+        <span class="tokens">${tokens}</span></div>`;
+    }).join('');
+    rows.push(`<div class="brow"><div class="rlabel">${ROWS[r].label}</div>${cells}</div>`);
+  }
+  document.getElementById('board').innerHTML = rows.join('');
+  document.getElementById('legend').innerHTML = ['social', 'share', 'cope', 'help', 'oops', 'event', 'payday'].map(t =>
+    `<span><i style="--tc:${TYPES[t].color}"></i>${TYPES[t].icon} ${TYPES[t].label}</span>`).join('') +
+    '<span><i style="--tc:#fff;border-color:#d50000"></i>🛑 Stop space</span>';
+}
+
+function renderSide() {
+  const btn = document.getElementById('spinBtn');
+  btn.disabled = S.phase !== 'spin';
+  const wheel = document.getElementById('wheelBtn');
+  wheel.classList.toggle('ready', S.phase === 'spin');
+  wheel.setAttribute('aria-disabled', S.phase !== 'spin');
+  btn.textContent = S.phase === 'spin' ? `🎡 SPIN! (1–${S.spinMax})` : '🎡 SPIN!';
+  const res = document.getElementById('spinResult');
+  if (S.phase === 'move') {
+    res.innerHTML = `${esc(cur().name)} spun a ${S.lastSpin}!<br><span class="moves">👣 ${S.movesLeft} space${S.movesLeft === 1 ? '' : 's'} to move</span>`;
+  } else if (S.phase === 'spin') {
+    res.textContent = '';
+  }
+  document.getElementById('players').innerHTML = S.players.map((p, i) => `
+    <div class="pcard ${i === S.turn && S.phase !== 'party' ? 'now' : ''} ${p.done ? 'done' : ''}" style="--pc:${p.color}">
+      <div class="phead"><span class="av">${p.avatar}</span><span class="nm">${esc(p.name)}${p.done ? ' 🎉' : ''}</span>
+        <span class="pstats"><span class="${p.coins < 0 ? 'neg' : ''}">💰${fmtCoins(p.coins)}</span><span>❤️${p.hearts}</span></span></div>
+      <div class="pinfo">
+        ${p.career ? `${p.career.icon} ${esc(p.career.name)}` : p.path === 'college' ? '🎓 In college' : '🧒 No job yet'} · 💵${p.salary}/payday · ${p.home ? `${p.home.icon} ${esc(p.home.name)}` : '🔑 No home'}
+      </div>
+    </div>`).join('') || '<div class="pinfo">Players appear here.</div>';
+}
+
+function buildWheel() {
+  const n = S.spinMax;
+  const r = 100, cx = 110, cy = 110;
+  const pal = ['#ff5252', '#ffd23f', '#2ee66b', '#29b6f6', '#ce93d8', '#ff8a65', '#4dd0e1', '#f48fb1', '#aed581', '#ffb74d'];
+  const pt = a => [cx + r * Math.sin(a * Math.PI / 180), cy - r * Math.cos(a * Math.PI / 180)];
+  let segs = '';
+  for (let i = 0; i < n; i++) {
+    const a0 = i * 360 / n, a1 = (i + 1) * 360 / n, mid = (a0 + a1) / 2;
+    const [x0, y0] = pt(a0), [x1, y1] = pt(a1);
+    const tx = cx + 66 * Math.sin(mid * Math.PI / 180), ty = cy - 66 * Math.cos(mid * Math.PI / 180);
+    segs += `<path d="M${cx},${cy} L${x0.toFixed(2)},${y0.toFixed(2)} A${r},${r} 0 0 1 ${x1.toFixed(2)},${y1.toFixed(2)} Z" fill="${pal[i % pal.length]}" stroke="#000" stroke-width="3"/>
+      <text x="${tx.toFixed(2)}" y="${ty.toFixed(2)}" transform="rotate(${mid} ${tx.toFixed(2)} ${ty.toFixed(2)})" text-anchor="middle" dominant-baseline="central" font-size="${n > 8 ? 24 : 30}" font-weight="900" fill="#000">${i + 1}</text>`;
+  }
+  S.wheelAngle = 0;
+  document.getElementById('wheel').innerHTML = `<svg viewBox="0 0 220 220" role="img" aria-label="Spinner from 1 to ${n}">
+    <g id="wheelRot" style="transform: rotate(0deg)">${segs}</g>
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#000" stroke-width="6"/>
+    <circle cx="${cx}" cy="${cy}" r="14" fill="#fff" stroke="#000" stroke-width="4"/></svg>`;
+}
+
+/* --- overlay layer --- */
+
+function renderLayer() {
+  let html = '';
+  let inner = '';
+  if (S.modal) inner = modalHTML(S.modal);
+  else if (S.phase === 'setup') inner = setupHTML();
+  else if (S.phase === 'party') inner = partyHTML();
+  else if (S.phase === 'card' && S.card) inner = cardHTML(S.card);
+  if (inner) html = `<div class="overlay" role="dialog" aria-modal="true">${inner}</div>`;
+  document.getElementById('layer').innerHTML = html;
+}
+
+function renderToast() {
+  document.getElementById('toastLayer').innerHTML = S.toast ? `<div class="toast" role="status">${esc(S.toast)}</div>` : '';
+}
+
+function head(type, title, extra = '') {
+  const T = TYPES[type];
+  const p = cur();
+  return `<div class="mhead" style="--tc:${T.color}">
+    <span class="ic" aria-hidden="true">${T.icon}</span><h2>${esc(title)}</h2>
+    ${extra}
+    <button class="btn" data-action="read" title="Read this card aloud">🔊 Read</button>
+    <span class="who" style="border-color:${p.color}">${p.avatar} ${esc(p.name)}</span>
+  </div>`;
+}
+
+function othersButtons(label) {
+  const c = S.card;
+  return S.players.map((o, i) => i === S.turn ? '' :
+    `<button class="btn pbtn ${c.talked.includes(i) ? 'on' : ''}" data-action="talked" data-i="${i}" ${c.talked.includes(i) ? 'disabled' : ''} style="border-color:${o.color}">
+      ${c.talked.includes(i) ? '✅' : '🙋'} ${esc(o.name)} ${label}</button>`).join('');
+}
+
+const doneBtn = (text = '✅ Done: next player ▶') =>
+  `<button class="btn btn-big btn-go" data-action="done">${text}</button>`;
+
+function cardHTML(c) {
+  const p = cur();
+  switch (c.type) {
+    case 'social':
+    case 'oops': {
+      const d = c.data;
+      const isOops = c.type === 'oops';
+      const title = isOops ? 'Oops!' : 'What would you do?';
+      const swap = !isOops && c.step === 'main' ? '<button class="btn" data-action="redraw" title="Draw a different card">🔄 New card</button>' : '';
+      if (c.step === 'main') {
+        const costLine = isOops && d.cost ? `<div class="fx">−${d.cost} 💰</div>` : '';
+        return `<div class="modal">${head(c.type, title, swap)}<div class="mbody">
+          <div class="scen">${esc(d.text)}</div>${costLine}
+          <p class="small-note">${isOops ? 'How do you handle it?' : `${esc(p.name)}, pick what you would REALLY do. Think it over out loud!`}</p>
+          <div class="choices">${c.order.map((ci, k) =>
+            `<button class="choice" data-action="choose" data-i="${ci}"><span class="let">${'ABC'[k]}</span>${esc(d.choices[ci].t)}</button>`).join('')}</div>
+        </div></div>`;
+      }
+      const ch = c.choice;
+      const talk = isOops
+        ? 'Has something like this ever happened to you? What did you do?'
+        : d.talk;
+      return `<div class="modal">${head(c.type, title)}<div class="mbody">
+        <div class="picked">${esc(p.name)} chose: ${esc(ch.t)}</div>
+        <p class="fb">${esc(ch.fb)}</p>
+        <span class="fx">${fxText(ch.c, ch.h)}</span>
+        ${isOops ? `<div class="showit">
+          <h3>🧘 Show us! ${c.showSkill.icon} ${esc(c.showSkill.name)}</h3>
+          <p>${esc(p.name)}, show how you could calm down after this: ${esc(c.showSkill.short)}</p>
+          <div class="row"><button class="btn ${c.showed ? 'btn-go' : ''}" data-action="showed" ${c.showed ? 'disabled' : ''}>${c.showed ? '✅ Shown! +1 ❤️' : `✅ ${esc(p.name)} showed it (+1 ❤️)`}</button></div>
+        </div>` : ''}
+        <div class="talk">
+          <h3>💬 Talk about it</h3>
+          <p>${esc(talk)}</p>
+          <div class="hint">Ask a friend! When they share an answer, tap their name. You both get +1 ❤️.</div>
+          <div class="row">${othersButtons('shared')}</div>
+        </div>
+        <div class="row end">${doneBtn()}</div>
+      </div></div>`;
+    }
+
+    case 'cope': {
+      if (c.step === 'main') {
+        return `<div class="modal">${head('cope', 'Show a Coping Skill')}<div class="mbody">
+          <div class="trigger">${esc(c.trigger)}</div>
+          <div class="scen">${esc(p.name)}, pick a calm-down strategy to SHOW us:</div>
+          <div class="opts">${c.options.map((k, i) => `<button class="opt" data-action="coping" data-i="${i}">
+            <span class="big">${k.icon}</span><span class="t">${esc(k.name)}</span><span class="d">${esc(k.short)}</span></button>`).join('')}</div>
+        </div></div>`;
+      }
+      const k = c.skill;
+      return `<div class="modal">${head('cope', k.name)}<div class="mbody">
+        <div class="trigger">${esc(c.trigger)}</div>
+        <div class="scen">${k.icon} ${esc(p.name)}, show us ${esc(k.name)}!</div>
+        <div class="${k.guide ? 'dorow' : ''}">
+        <ol class="steps">${k.steps.map(t => `<li>${esc(t)}</li>`).join('')}</ol>
+        ${k.guide ? `<div class="guide">
+          <div class="breath" id="breath" aria-hidden="true">🙂</div>
+          <div class="breath-label" id="breathLabel" aria-live="polite">Tap Start and follow the circle.</div>
+          <button class="btn" id="guideBtn" data-action="guide">▶ Start guided breathing</button>
+        </div>` : ''}
+        </div>
+        <div class="showit">
+          <h3>🙌 Everyone can try it too!</h3>
+          <div class="row">
+            <button class="btn btn-big ${c.didIt ? 'btn-go' : ''}" data-action="did-it" ${c.didIt ? 'disabled' : ''}>${c.didIt ? '✅ Done! +1 ❤️' : `✅ ${esc(p.name)} did it (+1 ❤️)`}</button>
+            <button class="btn btn-big ${c.together ? 'btn-go' : ''}" data-action="together" ${c.together ? 'disabled' : ''}>${c.together ? '✅ Everyone +1 ❤️' : '🙌 We all tried it (everyone +1 ❤️)'}</button>
+          </div>
+        </div>
+        <div class="talk"><h3>💬 Talk about it</h3><p>When could this strategy help you in real life?</p></div>
+        <div class="row end">${doneBtn()}</div>
+      </div></div>`;
+    }
+
+    case 'share':
+      return `<div class="modal">${head('share', 'Share Time', '<button class="btn" data-action="redraw-share">🔄 New question</button>')}<div class="mbody">
+        <div class="scen">“${esc(c.q)}”</div>
+        <p class="fb">1️⃣ ${esc(p.name)}, answer out loud.<br>2️⃣ Then someone asks a <b>follow-up question</b> about your answer!</p>
+        <div class="talk">
+          <h3>🤔 Follow-up question starters</h3>
+          <div class="starters">${FOLLOWUPS.map(f => `<span>${esc(f)}</span>`).join('')}</div>
+          <div class="hint">Tap the name of whoever asked a follow-up. You both get +1 ❤️.</div>
+          <div class="row">${othersButtons('asked a follow-up')}</div>
+        </div>
+        <div class="row end">${doneBtn()}</div>
+      </div></div>`;
+
+    case 'event': {
+      const ev = c.data;
+      const fx = ev.gift ? `+${ev.gift * (S.players.length - 1)} 💰 for ${p.name}`
+        : ev.all ? 'Everyone: +1 ❤️' : fxText(ev.c, ev.h);
+      return `<div class="modal">${head('event', 'Life Event')}<div class="mbody">
+        <div class="scen" style="text-align:center"><span style="font-size:4rem">${ev.icon}</span><br>${esc(ev.text)}</div>
+        <div style="text-align:center"><span class="fx">${esc(fx)}</span></div>
+        ${ev.act ? `<div class="talk"><h3>🎬 Your turn to act!</h3><p>${esc(ev.act)}</p></div>` : ''}
+        <div class="row end">${doneBtn()}</div>
+      </div></div>`;
+    }
+
+    case 'payday':
+      return `<div class="modal">${head('payday', 'Payday!')}<div class="mbody">
+        <div class="scen" style="text-align:center"><span style="font-size:4rem">💰</span><br>
+          ${p.career ? `Your job as a ${esc(p.career.name)} pays ${p.salary}` : `Allowance day! ${p.salary} coins`} + 10 bonus for landing here!</div>
+        <div style="text-align:center"><span class="fx">+${c.amount} 💰</span></div>
+        <div class="talk"><h3>💬 Quick question</h3><p>What would you save up for?</p></div>
+        <div class="row end">${doneBtn()}</div>
+      </div></div>`;
+
+    case 'help': {
+      if (c.step === 'result') {
+        const f = S.players[c.friend];
+        return `<div class="modal">${head('help', 'Help a Friend')}<div class="mbody">
+          <div class="scen" style="text-align:center"><span style="font-size:3.5rem">${c.way.icon}</span><br>${esc(p.name)} helped ${esc(f.name)}!</div>
+          ${c.way.id !== 'coins' ? `<div class="talk"><h3>🗣️ Say it out loud</h3><p>${c.way.id === 'compliment' ? `${esc(p.name)}, give ${esc(f.name)} a real compliment!` : `${esc(p.name)}, tell ${esc(f.name)} what you'd help with.`}</p>
+            <div class="hint">${esc(f.name)}, how could you respond? (“Thanks!” goes a long way.)</div></div>` : ''}
+          <div style="text-align:center;margin-top:10px"><span class="fx">${esc(c.fx)}</span></div>
+          <div class="row end">${doneBtn()}</div>
+        </div></div>`;
+      }
+      const friends = S.players.map((o, i) => i === S.turn ? '' :
+        `<button class="btn pbtn ${c.friend === i ? 'on' : ''}" data-action="friend" data-i="${i}" style="border-color:${o.color}">${o.avatar} ${esc(o.name)}</button>`).join('');
+      return `<div class="modal">${head('help', 'Help a Friend')}<div class="mbody">
+        <div class="scen">Your friend is having a tough day. How will you help?</div>
+        ${S.players.length > 2 ? `<div class="label">1. Who will you help?</div><div class="row">${friends}</div><div class="label">2. How?</div>` : ''}
+        <div class="opts">${HELP_WAYS.map(w => `<button class="opt" data-action="help-way" data-id="${w.id}" ${c.friend == null ? 'disabled' : ''}>
+          <span class="big">${w.icon}</span><span class="t">${esc(w.t)}</span><span class="d">${esc(w.d)}</span></button>`).join('')}</div>
+      </div></div>`;
+    }
+
+    case 'path': {
+      if (c.step === 'career') return careerPick(c, 'Pick your first job!', 'path');
+      if (c.step === 'result') {
+        return `<div class="modal">${head('path', 'Choose Your Path')}<div class="mbody">
+          <div class="scen" style="text-align:center"><span style="font-size:4rem">${p.path === 'college' ? '🎓' : p.career.icon}</span><br>
+          ${p.path === 'college' ? `Off to college! You paid ${COLLEGE_COST} coins. Pick a career at Career Day.` : `${esc(p.name)} is now a ${esc(p.career.name)}, earning ${p.salary} each payday!`}</div>
+          <div class="talk"><h3>💬 Talk about it</h3><p>What's a job you'd love to try for real? Why?</p></div>
+          <div class="row end">${doneBtn()}</div>
+        </div></div>`;
+      }
+      return `<div class="modal">${head('path', 'Choose Your Path')}<div class="mbody">
+        <div class="scen">Time for a big choice! What will you do after school?</div>
+        <div class="opts">
+          <button class="opt" data-action="path" data-id="college"><span class="big">🎓</span><span class="t">Go to College</span>
+            <span class="d">Pay ${COLLEGE_COST} 💰 now. At Career Day, pick a higher-paying job (45–70 per payday).</span></button>
+          <button class="opt" data-action="path" data-id="work"><span class="big">🛠️</span><span class="t">Start Working</span>
+            <span class="d">Pick a job right now (25–35 per payday) and start earning sooner.</span></button>
+        </div>
+        <p class="small-note">There's no wrong answer. Both paths can lead to a great life!</p>
+      </div></div>`;
+    }
+
+    case 'career': {
+      if (c.options && c.step === 'main') return careerPick(c, 'Graduation! Pick your career.', 'career');
+      const msg = c.raise
+        ? `Experience pays off! ${esc(p.name)} gets a raise: now ${p.salary} per payday.`
+        : `Congratulations, ${esc(p.career.name)}! You'll earn ${p.salary} each payday.`;
+      return `<div class="modal">${head('career', 'Career Day')}<div class="mbody">
+        <div class="scen" style="text-align:center"><span style="font-size:4rem">${c.raise ? '📈' : p.career.icon}</span><br>${msg}</div>
+        <div class="talk"><h3>💬 Talk about it</h3><p>What would be the best part and the hardest part of ${p.career ? 'being a ' + esc(p.career.name) : 'your job'}?</p></div>
+        <div class="row end">${doneBtn()}</div>
+      </div></div>`;
+    }
+
+    case 'home': {
+      if (c.step === 'result') {
+        const h = c.homeChoice;
+        return `<div class="modal">${head('home', 'Find a Home')}<div class="mbody">
+          <div class="scen" style="text-align:center"><span style="font-size:4rem">${h ? h.icon : '🔑'}</span><br>
+          ${h ? `Welcome home! ${esc(p.name)} bought a ${esc(h.name)} for ${h.cost} coins. It'll be worth ${h.value} at the Life Party.` : `${esc(p.name)} keeps renting and saves money.`}</div>
+          <div class="talk"><h3>💬 Share</h3><p>Describe one room in your dream home!</p>
+            <div class="hint">Others: ask a follow-up question, then tap your name. You both get +1 ❤️.</div>
+            <div class="row">${othersButtons('asked a follow-up')}</div></div>
+          <div class="row end">${doneBtn()}</div>
+        </div></div>`;
+      }
+      return `<div class="modal">${head('home', 'Find a Home')}<div class="mbody">
+        <div class="scen">Where do you want to live? A home costs coins now but counts toward your Life Points later.</div>
+        <div class="opts">${c.options.map((h, i) => `<button class="opt" data-action="home" data-i="${i}">
+          <span class="big">${h.icon}</span><span class="t">${esc(h.name)}</span><span class="d">Costs ${h.cost} 💰 · worth ${h.value} later</span></button>`).join('')}
+          <button class="opt" data-action="home" data-i="-1"><span class="big">🔑</span><span class="t">Keep Renting</span><span class="d">Costs nothing now. Worth nothing later.</span></button>
+        </div>
+        <p class="small-note">You have ${fmtCoins(p.coins)} 💰. You can go into debt, but it counts against you at the end.</p>
+      </div></div>`;
+    }
+
+    case 'finish': {
+      const ord = ['1st', '2nd', '3rd', '4th'][c.place - 1] || `#${c.place}`;
+      const left = S.players.filter(o => !o.done).length;
+      return `<div class="modal">${head('finish', 'Life Party!')}<div class="mbody">
+        <div class="scen" style="text-align:center"><span style="font-size:4rem">🎉</span><br>${esc(p.name)} made it to the Life Party ${ord}!</div>
+        <div style="text-align:center"><span class="fx">+${c.bonus} 💰 arrival bonus</span></div>
+        <div class="talk"><h3>💬 Look back</h3><p>What was your favorite moment on your life path so far?</p></div>
+        <p class="small-note">${left ? `${left} player${left > 1 ? 's' : ''} still on the path. ${esc(p.name)} can keep cheering them on and joining Talk About It questions!` : 'Everyone made it!'}</p>
+        <div class="row end">${doneBtn(left ? '✅ Done: next player ▶' : '🎉 Go to the Life Party!')}</div>
+      </div></div>`;
+    }
+  }
+  return '';
+}
+
+function careerPick(c, title, type) {
+  return `<div class="modal">${head(type, title)}<div class="mbody">
+    <div class="scen">Pick one of these careers:</div>
+    <div class="opts">${c.options.map((j, i) => `<button class="opt" data-action="career" data-i="${i}">
+      <span class="big">${j.icon}</span><span class="t">${esc(j.name)}</span><span class="d">💵 ${j.salary} per payday</span></button>`).join('')}</div>
+    <p class="small-note">Tip: money isn't everything! Pick something you'd enjoy.</p>
+  </div></div>`;
+}
+
+function setupHTML() {
+  const st = S.setup;
+  const rows = [];
+  for (let i = 0; i < st.count; i++) {
+    rows.push(`<div class="setup-row" style="--pc:${PCOLORS[i]}">
+      <button class="avbtn" data-action="avatar" data-i="${i}" title="Change avatar" aria-label="Change avatar for player ${i + 1}">${AVATARS[st.avatars[i]]}</button>
+      <input id="name${i}" maxlength="16" placeholder="Player ${i + 1}" value="${esc(st.names[i])}" autocomplete="off" aria-label="Player ${i + 1} name">
+    </div>`);
+  }
+  return `<div class="modal"><div class="mhead"><span class="ic">🛤️</span><h2>Welcome to Life Paths!</h2></div><div class="mbody">
+    <p class="fb">Spin, move, and make choices from childhood to grown-up life. Every space is a chance to talk, share, and practice being a great friend.</p>
+    <div class="label">How many players?</div>
+    <div class="seg">${[2, 3, 4].map(n => `<button class="btn" data-action="count" data-i="${n}" aria-pressed="${st.count === n}">${n} players</button>`).join('')}</div>
+    <div class="label">Who's playing? (tap an avatar to change it)</div>
+    ${rows.join('')}
+    <div class="label">Game length</div>
+    <div class="seg">
+      <button class="btn" data-action="length" data-i="6" aria-pressed="${st.spinMax === 6}">🐢 Full game (spin 1–6)</button>
+      <button class="btn" data-action="length" data-i="10" aria-pressed="${st.spinMax === 10}">🐇 Quicker game (spin 1–10)</button>
+    </div>
+    <div class="row end">
+      <button class="btn btn-big" data-action="help">❓ How to Play</button>
+      <button class="btn btn-big btn-go" data-action="start">🚀 Start Our Lives!</button>
+    </div>
+  </div></div>`;
+}
+
+function lifePoints(p) {
+  return p.coins + p.hearts * HEART_POINTS + (p.home ? p.home.value : 0);
+}
+
+function partyHTML() {
+  const ranked = S.players.slice().sort((a, b) => lifePoints(b) - lifePoints(a));
+  const maxOf = f => Math.max(...S.players.map(f));
+  const awards = p => {
+    const a = [];
+    if (lifePoints(p) === maxOf(lifePoints)) a.push('🏆 Most Life Points');
+    if (p.hearts === maxOf(x => x.hearts)) a.push('❤️ Best Friend Award');
+    if (p.coins === maxOf(x => x.coins)) a.push('💰 Super Saver');
+    if (p.finishPlace === 1) a.push('🥇 First to the Party');
+    if (p.home && p.home.value === maxOf(x => x.home ? x.home.value : 0)) a.push('🏠 Dream Home');
+    if (!a.length) a.push('🌈 Unique Life Story');
+    return a;
+  };
+  const cards = ranked.map((p, i) => `<div class="pp" style="--pc:${p.color}">
+    <div class="rank">#${i + 1}</div>
+    <div class="who">${p.avatar} ${esc(p.name)}</div>
+    <div class="pts">${lifePoints(p)} pts</div>
+    <div class="breakdown">💰 ${fmtCoins(p.coins)} + ❤️ ${p.hearts}×${HEART_POINTS} + 🏠 ${p.home ? p.home.value : 0}</div>
+    <div class="awards">${awards(p).map(a => `<span>${a}</span>`).join('')}</div>
+    <div class="breakdown">${p.career ? `${p.career.icon} ${esc(p.career.name)}` : '🧒 No career yet'} · ${p.home ? `${p.home.icon} ${esc(p.home.name)}` : '🔑 Renting'}</div>
+    <details><summary><b>📖 Life story (${p.story.length})</b></summary><ul>${p.story.map(s => `<li>${esc(s)}</li>`).join('')}</ul></details>
+  </div>`).join('');
+  return `<div class="modal wide"><div class="mhead" style="--tc:var(--gold)"><span class="ic">🎉</span><h2>The Life Party!</h2>
+    <button class="btn btn-go" data-action="new-game">🔄 Play Again</button></div><div class="mbody">
+    <p class="small-note">Life Points = coins + 10 for every ❤️ + your home's value.</p>
+    <div class="party">${cards}</div>
+    <div class="reflect"><h3 style="margin:0">💬 Let's reflect together</h3><ol>
+      <li>What was the hardest choice you made? Why?</li>
+      <li>Is there a choice you'd make differently now?</li>
+      <li>What's one thing someone else did in this game that was kind or smart?</li>
+    </ol></div>
+  </div></div>`;
+}
+
+function modalHTML(m) {
+  if (m.type === 'help') {
+    return `<div class="modal"><div class="mhead"><span class="ic">❓</span><h2>How to Play</h2></div><div class="mbody">
+      <ul class="helplist">
+        <li><b>Goal:</b> travel from childhood to the 🎉 Life Party, making choices along the way. At the end, <b>Life Points = coins + 10 per ❤️ + your home's value</b>. Hearts are worth a lot, so be a good friend!</li>
+        <li>On your turn, tap the <b>spinner</b> (or the SPIN button). Then <b>move your own piece</b>, either way: tap the <b>👣 Step here</b> space just ahead of your piece to move one space at a time (count out loud!), or count in your head and tap the space you'll land on to jump straight there.</li>
+        <li><b>💬 What would you do?</b> Read the situation, pick what you'd REALLY do, then talk about it. When a friend answers the question, tap their name: you both get +1 ❤️.</li>
+        <li><b>🎤 Share Time:</b> answer the question, then a friend asks a follow-up question about your answer.</li>
+        <li><b>⚡ Oops!</b> Something goes wrong. Choose how to cope, then <b>show</b> a calm-down strategy for +1 ❤️.</li>
+        <li><b>🧘 Show a Coping Skill:</b> pick a calm-down strategy (like Box Breathing or 5-4-3-2-1 Senses) and actually do it for the group. Breathing ones have a guided circle to follow. Everyone can join in!</li>
+        <li><b>🤝 Help a Friend</b>, <b>🎁 Life Events</b>, and <b>💰 Payday</b> (you also get paid just for <i>passing</i> Payday).</li>
+        <li><b>🛑 Stop spaces</b> (you always stop here): choose college or work, pick a career, and pick a home.</li>
+      </ul>
+      <h3>For the group leader</h3>
+      <ul class="helplist">
+        <li><b>On Zoom:</b> share this window and give <b>Remote Control</b> to whoever's turn it is. Everything is click-only.</li>
+        <li>🔄 <b>New card</b> swaps out a situation that doesn't fit your group. 🔊 <b>Read</b> reads a card aloud (🗣️ Auto-read does it every time; tick “Share sound” in Zoom).</li>
+        <li>🏁 <b>End Game</b> jumps to the Life Party at any time if you run short on time.</li>
+        <li>Choices only show their ❤️/💰 effects <i>after</i> you pick, so players think about the situation, not the points.</li>
+      </ul>
+      <div class="row end"><span></span><button class="btn btn-big btn-go" data-action="close-modal">Got it! 👍</button></div>
+    </div></div>`;
+  }
+  if (m.type === 'confirm-end' || m.type === 'confirm-new') {
+    const end = m.type === 'confirm-end';
+    return `<div class="modal"><div class="mhead"><span class="ic">${end ? '🏁' : '🔄'}</span><h2>${end ? 'End the game now?' : 'Start a new game?'}</h2></div><div class="mbody">
+      <p class="fb">${end ? 'Everyone goes straight to the Life Party with what they have now.' : 'This game will be cleared.'}</p>
+      <div class="row end"><button class="btn btn-big" data-action="close-modal">Keep playing</button>
+      <button class="btn btn-big btn-go" data-action="${end ? 'really-end' : 'really-new'}">${end ? '🎉 Go to the party' : 'Yes, new game'}</button></div>
+    </div></div>`;
+  }
+  return '';
+}
+
+/* =========================================================
+   READ ALOUD / SOUND / TOAST
+   ========================================================= */
+
+function cardSpeech() {
+  const c = S.card;
+  if (!c) return '';
+  const p = cur();
+  switch (c.type) {
+    case 'social':
+    case 'oops':
+      if (c.step === 'main') return `${c.data.text} ${c.order.map((ci, k) => `${'ABC'[k]}: ${c.data.choices[ci].t}`).join(' ')}`;
+      return `${c.choice.fb} Talk about it: ${c.type === 'oops' ? 'Has something like this ever happened to you?' : c.data.talk}`;
+    case 'share': return `Share time. ${c.q}`;
+    case 'cope':
+      if (c.step === 'main') return `${c.trigger} Pick a calm-down strategy to show us: ${c.options.map(k => k.name).join(', or ')}.`;
+      return `${c.skill.name}. ${c.skill.steps.join(' ')}`;
+    case 'event': return `${c.data.text} ${c.data.act || ''}`;
+    case 'payday': return `Payday! ${p.name} gets ${c.amount} coins.`;
+    case 'help': return 'Your friend is having a tough day. How will you help?';
+    case 'path': return 'Choose your path. Go to college, or start working?';
+    case 'career': return 'Career day!';
+    case 'home': return 'Find a home. Where do you want to live?';
+    case 'finish': return `${p.name} made it to the Life Party!`;
+  }
+  return '';
+}
+function readCard() {
+  if (!('speechSynthesis' in window)) { toast('Read-aloud isn\'t supported in this browser.'); return; }
+  speechCancel();
+  const u = new SpeechSynthesisUtterance(cardSpeech().replace(/[“”]/g, ''));
+  u.rate = 0.95;
+  window.speechSynthesis.speak(u);
+}
+function speechCancel() {
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+}
+
+let toastTimer = null;
+function toast(msg) {
+  S.toast = msg;
+  renderToast();
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { S.toast = null; renderToast(); }, 2600);
+}
+
+let actx = null;
+const audio = () => (actx = actx || new (window.AudioContext || window.webkitAudioContext)());
+
+// A short wooden "tock", like setting a game piece down on a board.
+function woodClick(t) {
+  const ctx = audio();
+  const len = Math.floor(ctx.sampleRate * 0.03);
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 4);
+  const noise = ctx.createBufferSource();
+  noise.buffer = buf;
+  const band = ctx.createBiquadFilter();
+  band.type = 'bandpass';
+  band.frequency.value = 1800;
+  band.Q.value = 1.2;
+  const ng = ctx.createGain();
+  ng.gain.value = 0.9;
+  noise.connect(band).connect(ng).connect(ctx.destination);
+  noise.start(t);
+  // A little low "body" so it sounds like wood rather than static.
+  const osc = ctx.createOscillator();
+  const og = ctx.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(260, t);
+  osc.frequency.exponentialRampToValueAtTime(120, t + 0.05);
+  og.gain.setValueAtTime(0.35, t);
+  og.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+  osc.connect(og).connect(ctx.destination);
+  osc.start(t);
+  osc.stop(t + 0.07);
+}
+
+// One click per space moved, so a jump sounds like the piece tapping across the board.
+let clicksEnd = 0;
+function pieceClicks(n) {
+  if (!S.sound || n <= 0) return;
+  try {
+    const t0 = audio().currentTime + 0.01;
+    const count = Math.min(n, 10);
+    for (let k = 0; k < count; k++) woodClick(t0 + k * 0.12);
+    clicksEnd = t0 + count * 0.12;
+  } catch (e) { /* audio is optional */ }
+}
+
+function sfx(kind) {
+  if (!S.sound) return;
+  const tunes = {
+    pop: [[520, 0.08], [700, 0.1]],
+    good: [[523, 0.09], [784, 0.14]],
+    nope: [[330, 0.12], [262, 0.18]],
+    spin: [[400, 0.05], [500, 0.05], [600, 0.05]],
+    yay: [[523, 0.1], [659, 0.1], [784, 0.1], [1047, 0.25]],
+  };
+  try {
+    audio();
+    let t = Math.max(actx.currentTime + 0.01, clicksEnd);
+    for (const [f, d] of tunes[kind] || []) {
+      const osc = actx.createOscillator();
+      const g = actx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = f;
+      g.gain.setValueAtTime(0.15, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + d);
+      osc.connect(g).connect(actx.destination);
+      osc.start(t);
+      osc.stop(t + d + 0.02);
+      t += d * 0.9;
+    }
+  } catch (e) { /* audio is optional */ }
+}
+
+/* =========================================================
+   INPUT
+   ========================================================= */
+
+document.addEventListener('input', ev => {
+  const m = /^name(\d)$/.exec(ev.target.id || '');
+  if (m) S.setup.names[Number(m[1])] = ev.target.value;
+});
+
+document.addEventListener('click', ev => {
+  const el = ev.target.closest('[data-action]');
+  if (!el || el.disabled) return;
+  const a = el.dataset.action;
+  const i = el.dataset.i != null ? Number(el.dataset.i) : null;
+  const c = S.card;
+
+  switch (a) {
+    // setup
+    case 'count': S.setup.count = i; break;
+    case 'avatar': {
+      const used = S.setup.avatars.filter((_, k) => k !== i && k < S.setup.count);
+      let next = S.setup.avatars[i];
+      do { next = (next + 1) % AVATARS.length; } while (used.includes(next));
+      S.setup.avatars[i] = next;
+      break;
+    }
+    case 'length': S.setup.spinMax = i; break;
+    case 'start': startGame(); return;
+
+    // turn
+    case 'spin': spin(); return;
+    case 'hop': hop(i); return;
+    case 'choose': chooseSocial(i); break;
+    case 'redraw': c.data = drawSocial(cur().pos); c.order = shuffle([0, 1, 2]); if (S.autoRead) readCard(); break;
+    case 'redraw-share': c.q = drawFrom('share', SHARE); if (S.autoRead) readCard(); break;
+    case 'talked': talked(i); break;
+    case 'friend': c.friend = i; break;
+    case 'help-way': chooseHelp(el.dataset.id); break;
+    case 'coping': chooseCoping(i); break;
+    case 'guide': if (guideTimer) { stopGuide(); el.textContent = '▶ Start guided breathing'; document.getElementById('breathLabel').textContent = 'Stopped. Tap Start to try again.'; } else startGuide(); return;
+    // These update the button in place so a running guided-breathing circle isn't interrupted.
+    case 'did-it':
+    case 'together':
+    case 'showed': {
+      const key = a === 'did-it' ? 'didIt' : a;
+      if (c[key]) return;
+      c[key] = true;
+      if (a === 'together') S.players.forEach(o => { if (o !== cur()) applyFx(o, 0, 1); });
+      else applyFx(cur(), 0, 1);
+      sfx(a === 'together' ? 'yay' : 'good');
+      el.disabled = true;
+      el.classList.add('btn-go');
+      el.textContent = a === 'together' ? '✅ Everyone +1 ❤️' : a === 'did-it' ? '✅ Done! +1 ❤️' : '✅ Shown! +1 ❤️';
+      renderSide();
+      return;
+    }
+    case 'path': choosePath(el.dataset.id); break;
+    case 'career': chooseCareer(i); break;
+    case 'home': chooseHome(i); break;
+    case 'done': stopGuide(); endTurn(); return;
+    case 'read': readCard(); return;
+
+    // top bar
+    case 'toggle-read': S.autoRead = !S.autoRead; if (!S.autoRead) speechCancel(); break;
+    case 'toggle-sound': S.sound = !S.sound; break;
+    case 'help': S.modal = { type: 'help' }; break;
+    case 'close-modal': S.modal = null; break;
+    case 'end-game': S.modal = { type: 'confirm-end' }; break;
+    case 'really-end': stopGuide(); S.modal = null; S.card = null; S.phase = 'party'; speechCancel(); sfx('yay'); break;
+    case 'new-game': S.modal = S.phase === 'setup' || S.phase === 'party' ? null : { type: 'confirm-new' }; if (S.phase === 'party') { S.phase = 'setup'; S.players = []; } break;
+    case 'really-new': stopGuide(); S.modal = null; S.card = null; S.phase = 'setup'; S.players = []; speechCancel(); break;
+  }
+  if (S.autoRead && c && S.card === c && ['choose', 'help-way', 'path', 'career', 'home', 'coping'].includes(a)) readCard();
+  renderAll();
+});
+
+document.addEventListener('keydown', ev => {
+  if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.id === 'wheelBtn') {
+    ev.preventDefault();
+    spin();
+    return;
+  }
+  if ((ev.key === 'Enter' || ev.key === ' ') && ev.target.dataset && ev.target.dataset.action === 'hop') {
+    ev.preventDefault();
+    hop(Number(ev.target.dataset.i));
+    const nxt = document.querySelector('.cell.next');
+    if (nxt) nxt.focus();
+    return;
+  }
+  if (ev.key === 'Escape' && S.modal) { S.modal = null; renderAll(); }
+});
+
+buildWheel();
+renderAll();
+</script>
+</body>
+</html>

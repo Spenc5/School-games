@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chess for Sessions</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="app">
+
+  <header class="topbar">
+    <h1>Chess</h1>
+    <div class="topbar-actions">
+      <button id="btnNewGame" class="btn btn-primary">New Game</button>
+      <button id="btnUndo" class="btn">Undo</button>
+      <button id="btnFlip" class="btn">Flip Board</button>
+      <button id="btnHelp" class="btn btn-ghost" aria-label="Help / how to use with Zoom">Help</button>
+    </div>
+  </header>
+
+  <!-- Big, unmissable turn indicator -- meant to be readable at a glance on a shared Zoom screen -->
+  <div id="turnBanner" class="turn-banner" role="status" aria-live="polite">
+    <span class="turn-swatch" id="turnSwatch"></span>
+    <span id="turnText">White to move</span>
+    <span id="selectionLabel" class="selection-label"></span>
+  </div>
+
+  <main class="layout">
+
+    <section class="board-area">
+      <div class="captured-row" id="capturedTop"></div>
+
+      <div class="board-wrap">
+        <div id="board" class="board" role="grid" aria-label="Chess board"></div>
+        <div id="filesLabel" class="files-label"></div>
+        <div id="ranksLabel" class="ranks-label"></div>
+      </div>
+
+      <div class="captured-row" id="capturedBottom"></div>
+
+      <div class="board-options">
+        <label class="switch">
+          <span>Opponent</span>
+          <select id="selOpponent">
+            <option value="human" selected>Two players</option>
+            <option value="easy">Computer — Easy</option>
+            <option value="medium">Computer — Medium</option>
+            <option value="hard">Computer — Hard</option>
+          </select>
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="chkAutoFlip">
+          <span>Auto-flip board to face whoever's turn it is</span>
+        </label>
+        <label class="switch">
+          <input type="checkbox" id="chkLegalHints" checked>
+          <span>Show legal move hints</span>
+        </label>
+      </div>
+    </section>
+
+    <aside class="side-panel">
+      <div class="panel-block">
+        <h2>Move List</h2>
+        <ol id="moveList" class="move-list" aria-label="Move history"></ol>
+      </div>
+
+      <div class="panel-block status-block" id="statusBlock" hidden>
+        <p id="statusText"></p>
+      </div>
+    </aside>
+
+  </main>
+
+</div>
+
+<!-- Promotion picker -->
+<div id="promoModal" class="modal-overlay" hidden>
+  <div class="modal promo-modal" role="dialog" aria-modal="true" aria-label="Choose promotion piece">
+    <h2>Promote pawn to:</h2>
+    <div class="promo-choices" id="promoChoices"></div>
+  </div>
+</div>
+
+<!-- Game over modal -->
+<div id="gameOverModal" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Game over">
+    <h2 id="gameOverTitle">Game Over</h2>
+    <p id="gameOverDetail"></p>
+    <button id="btnPlayAgain" class="btn btn-primary">Play Again</button>
+  </div>
+</div>
+
+<!-- Help modal -->
+<div id="helpModal" class="modal-overlay" hidden>
+  <div class="modal help-modal" role="dialog" aria-modal="true" aria-label="Help">
+    <h2>Using this with Zoom</h2>
+    <ol class="help-list">
+      <li>Open this page in your browser and share <strong>this window/tab</strong> in Zoom (Share Screen → pick the browser window).</li>
+      <li>When it's a student's turn, use Zoom's <strong>Remote Control</strong> feature (in the Zoom toolbar during screen share) so they can click on your screen from their own computer.</li>
+      <li>Players just <strong>click a piece</strong>, then <strong>click a highlighted square</strong> to move it &mdash; no dragging needed, which keeps it reliable over remote control.</li>
+      <li>Turn on <strong>"Auto-flip board"</strong> so the board always faces the player whose turn it is &mdash; handy when control passes back and forth on one shared screen.</li>
+      <li>Use <strong>Undo</strong> if a student wants to try a move again &mdash; great for coaching without restarting the whole game.</li>
+      <li>Set <strong>Opponent</strong> to one of the Computer levels to play on your own &mdash; useful for trying the board out before a session, or letting a student play a solo game. The computer plays Black.</li>
+    </ol>
+    <button id="btnCloseHelp" class="btn btn-primary">Got it</button>
+  </div>
+</div>
+
+<script src="vendor/chess.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sugar Summit — a candy board game</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🍭</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <h1>🍭 Sugar Summit</h1>
+  <p class="tagline">Spin, climb the candy canes, dodge the slides. First to space 64 wins.</p>
+  <button id="sound-btn" class="sound-btn" type="button" aria-pressed="true" title="Sound on">🔊</button>
+</header>
+
+<main class="layout">
+
+  <!-- ── Board ───────────────────────────────────────────── -->
+  <section class="board-col" aria-label="Game board">
+   <div class="board-wrap">
+    <div id="board" class="board">
+      <svg id="links" class="links" aria-hidden="true" preserveAspectRatio="none"></svg>
+      <div id="tokens" class="tokens"></div>
+    </div>
+    <div class="start-tray">
+      <span class="tray-label">Start</span>
+      <span id="tray-slots" class="tray-slots"></span>
+      <span class="tray-note">count 1 to come on the board</span>
+    </div>
+   </div>
+  </section>
+
+  <!-- ── Side panel ──────────────────────────────────────── -->
+  <aside class="panel">
+
+    <!-- Setup -->
+    <div id="setup" class="card">
+      <h2>Who's playing?</h2>
+      <div id="setup-rows" class="setup-rows"></div>
+      <label class="opt">
+        <input id="order-opt" type="checkbox" checked>
+        Spin for who goes first
+      </label>
+      <button id="start-btn" class="btn btn-primary">Start game</button>
+      <p class="hint">Tip: leave a seat on <strong>Computer</strong> to play solo.</p>
+    </div>
+
+    <!-- Play -->
+    <div id="play" class="card" hidden>
+      <div id="turn-banner" class="turn-banner">
+        <span id="turn-dot" class="turn-dot"></span>
+        <span id="turn-name">—</span>
+      </div>
+
+      <div id="move-tray" class="move-tray" hidden>
+        <span id="move-label" class="move-label">Tap the next space</span>
+        <div id="pips" class="pips" aria-hidden="true"></div>
+      </div>
+
+      <div class="spinner-area">
+        <button id="spinner" class="spinner" type="button" aria-label="Spin the wheel">
+          <svg id="wheel" class="wheel" viewBox="-100 -100 200 200" aria-hidden="true"></svg>
+          <span class="needle" aria-hidden="true"></span>
+          <span id="spin-result" class="spin-result word">Spin</span>
+        </button>
+        <p class="spin-hint">Give the spinner a flick<span class="key-hint">or press space</span></p>
+      </div>
+
+      <ul id="scoreboard" class="scoreboard"></ul>
+
+      <p id="announce" class="announce" aria-live="polite"></p>
+
+      <button id="reset-btn" class="btn btn-ghost">New game</button>
+    </div>
+
+    <details class="card rules">
+      <summary>How to play</summary>
+      <ul>
+        <li>Tap the spinner for 1–6, then <strong>move your own piece</strong>: tap each
+            space in turn and count them off, just like at a table. <kbd>space</kbd>
+            works for both. Tap a wrong square and the board nudges you back on track.</li>
+        <li>Pieces wait off the board to begin with, so your first count of
+            <strong>one</strong> brings you onto space 1.</li>
+        <li>Everyone spins once at the start to see who goes first — highest wins,
+            and a tie spins again. Turn it off in the setup if you'd rather just play.</li>
+        <li>Click anyone's colour dot — in the setup or beside their name mid-game —
+            to change it.</li>
+        <li>🍬 <strong>Candy canes</strong> carry you up. Land on one and it starts
+            glowing — tap the cane itself and your piece climbs it.</li>
+        <li>🌀 <strong>Sugar slides</strong> drop you back down. Tap the slide and your
+            piece rides the curve to the bottom.</li>
+        <li>⭐ <strong>Star space</strong> — spin again right away.</li>
+        <li>🍮 <strong>Sticky space</strong> — you lose your next turn.</li>
+        <li>You must land on <strong>64</strong> exactly. Overshoot and you bounce back.</li>
+      </ul>
+    </details>
+
+  </aside>
+</main>
+
+<div id="winner" class="winner-overlay" hidden>
+  <div class="winner-card">
+    <div class="winner-emoji">🏆</div>
+    <h2 id="winner-name">Winner!</h2>
+    <p id="winner-sub"></p>
+    <button id="again-btn" class="btn btn-primary">Play again</button>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
